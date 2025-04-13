@@ -8,7 +8,7 @@ use crate::eval::{
 };
 use crate::moves::Move;
 use crate::phase::Phase;
-use crate::{see, Square};
+use crate::{Square, see};
 use anyhow::Result;
 
 /// The evaluation upper/lower bound definition

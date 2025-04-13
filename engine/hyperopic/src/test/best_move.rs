@@ -2,7 +2,7 @@ use crate::moves::Move;
 use crate::node::TreeNode;
 use crate::position::Position;
 use crate::search::{SearchParameters, TranspositionsImpl};
-use crate::{node, Symmetric};
+use crate::{Symmetric, node};
 
 const TABLE_SIZE: usize = 10_000;
 
@@ -106,7 +106,7 @@ fn win_material() {
         "1. d4 d5 2. e3 Nf6 3. c4 c6 4. Nc3 e6 5. Bd3 dxc4 6. Bxc4 b5 7. Be2 Bd6 8. e4 b4 9. e5 bxc3 10. exf6 O-O 11. fxg7 cxb2",
         vec!["g7f8q", "g7f8r"],
         false,
-        4
+        4,
     )
 }
 

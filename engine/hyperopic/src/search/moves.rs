@@ -8,7 +8,7 @@ use crate::eval::tables::PositionTables;
 use crate::moves::Move::{Castle, Enpassant, Normal, Null, Promote};
 use crate::moves::{Move, Moves};
 use crate::node::TreeNode;
-use crate::position::{ConstrainedPieces, Position, CASTLING_DETAILS};
+use crate::position::{CASTLING_DETAILS, ConstrainedPieces, Position};
 use crate::{Board, Class, Piece, Square};
 
 #[derive(Default)]
@@ -93,13 +93,13 @@ fn get_positional_xray_targets<'a>(class: Class) -> &'a [Class] {
 
 #[cfg(test)]
 mod test {
+    use crate::Symmetric;
     use crate::constants::piece;
     use crate::constants::square::*;
     use crate::moves::Move;
     use crate::moves::Move::Normal;
     use crate::position::Position;
     use crate::search::moves::{is_passed_pawn, is_positional_xray};
-    use crate::Symmetric;
 
     fn execute_test(pos: Position, m: Move, p: fn(&Move, &Position) -> bool, expected: bool) {
         let ref_p = pos.reflect();

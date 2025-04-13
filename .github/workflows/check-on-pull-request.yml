@@ -6,9 +6,9 @@ on:
 jobs:
   compile_and_test:
     name: Compile and test
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     container:
-      image: rust:1.69-bullseye
+      image: rust:1.86-bullseye
     steps:
       - uses: actions/checkout@v2
       - run: cargo test --release

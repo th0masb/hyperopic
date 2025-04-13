@@ -1,14 +1,14 @@
-use anyhow::{anyhow, Result};
+use NodeType::{All, Cut, Pv};
+use anyhow::{Result, anyhow};
 use std::cmp::{max, min};
 use std::time::Instant;
-use NodeType::{All, Cut, Pv};
 
 use crate::board::board_moves;
 use crate::constants::{class, create_piece, in_board};
 use crate::moves::Move;
 use crate::node;
 use crate::node::TreeNode;
-use crate::position::{TerminalState, CASTLING_DETAILS};
+use crate::position::{CASTLING_DETAILS, TerminalState};
 use crate::search::end::SearchEnd;
 use crate::search::moves::{MoveGenerator, SearchMove};
 use crate::search::pv::PrincipleVariation;

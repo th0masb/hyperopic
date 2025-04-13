@@ -1,13 +1,13 @@
 [package]
 name = "debug"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 hyperopic = { path = "../hyperopic" }
-clap = { version = "^4.3.0", features = ["derive"] }
+clap = { version = "4.3.0", features = ["derive"] }
 serde = "1.0.163"
 serde_json = "1.0.96"
-itertools = "0.11.0"
+itertools = "0.*"

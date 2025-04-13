@@ -4,7 +4,7 @@ use crate::constants::{side, square::*};
 use crate::moves::Move;
 use crate::node::{EvalFacet, Evaluation};
 use crate::position::Position;
-use crate::{square_map, Side, SideMap, Square, SquareMap};
+use crate::{Side, SideMap, Square, SquareMap, square_map};
 use lazy_static::lazy_static;
 
 type Knight = usize;

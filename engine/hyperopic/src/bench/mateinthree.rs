@@ -7,7 +7,7 @@ use regex::Regex;
 
 use crate::node::{TreeNode, WIN_VALUE};
 use crate::position::Position;
-use crate::search::{search, SearchParameters};
+use crate::search::{SearchParameters, search};
 use crate::{Move, TranspositionsImpl};
 
 #[rustfmt::skip]

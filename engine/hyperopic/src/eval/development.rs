@@ -5,8 +5,8 @@ use crate::constants::square::*;
 use crate::moves::Move;
 use crate::node::{EvalFacet, Evaluation};
 use crate::position::Position;
-use crate::{square_map, SideMap};
 use crate::{Side, SquareMap};
+use crate::{SideMap, square_map};
 use lazy_static::lazy_static;
 use rustc_hash::FxHashSet;
 
@@ -78,7 +78,7 @@ impl DevelopmentFacet {
             .flat_map(|(side, ds)| {
                 ds.iter()
                     .enumerate()
-                    .filter(|(_, &mv)| mv == Some(move_count))
+                    .filter(|&(_, &mv)| mv == Some(move_count))
                     .map(move |(d, _)| (side, d))
             })
             .next()
@@ -160,27 +160,74 @@ mod test {
             vec![
                 [[Some(0), None, None, None, None, None], [None; 6]],
                 [[Some(0), None, None, None, None, None], [Some(1), None, None, None, None, None]],
-                [[Some(0), None, None, Some(2), None, None], [Some(1), None, None, None, None, None]],
-                [[Some(0), None, None, Some(2), None, None], [Some(1), None, Some(3), None, None, None]],
-                [[Some(0), None, None, Some(2), None, Some(4)], [Some(1), None, Some(3), None, None, None]],
-                [[Some(0), None, None, Some(2), None, Some(4)], [Some(1), None, Some(3), Some(5), None, None]],
-                [[Some(0), None, None, Some(2), None, Some(4)], [Some(1), None, Some(3), Some(5), None, None]],
-                [[Some(0), None, None, Some(2), None, Some(4)], [Some(1), None, Some(3), Some(5), None, None]],
-                [[Some(0), Some(8), None, Some(2), None, Some(4)], [Some(1), None, Some(3), Some(5), None, None]],
-                [[Some(0), Some(8), None, Some(2), None, Some(4)], [Some(1), None, Some(3), Some(5), None, None]],
-                [[Some(0), Some(8), None, Some(2), None, Some(4)], [Some(1), None, Some(3), Some(5), None, None]],
-                [[Some(0), Some(8), None, Some(2), None, Some(4)], [Some(1), None, Some(3), Some(5), None, Some(11)]],
-                [[Some(0), Some(8), None, Some(2), Some(12), Some(4)], [Some(1), None, Some(3), Some(5), None, Some(11)]],
-                [[Some(0), Some(8), None, Some(2), Some(12), Some(4)], [Some(1), None, Some(3), Some(5), Some(13), Some(11)]],
-                [[Some(0), Some(8), Some(14), Some(2), Some(12), Some(4)], [Some(1), None, Some(3), Some(5), Some(13), Some(11)]],
-                [[Some(0), Some(8), Some(14), Some(2), Some(12), Some(4)], [Some(1), Some(15), Some(3), Some(5), Some(13), Some(11)]],
-            ].into_iter().enumerate().map(|(i, pieces)| {
+                [
+                    [Some(0), None, None, Some(2), None, None],
+                    [Some(1), None, None, None, None, None],
+                ],
+                [
+                    [Some(0), None, None, Some(2), None, None],
+                    [Some(1), None, Some(3), None, None, None],
+                ],
+                [
+                    [Some(0), None, None, Some(2), None, Some(4)],
+                    [Some(1), None, Some(3), None, None, None],
+                ],
+                [
+                    [Some(0), None, None, Some(2), None, Some(4)],
+                    [Some(1), None, Some(3), Some(5), None, None],
+                ],
+                [
+                    [Some(0), None, None, Some(2), None, Some(4)],
+                    [Some(1), None, Some(3), Some(5), None, None],
+                ],
+                [
+                    [Some(0), None, None, Some(2), None, Some(4)],
+                    [Some(1), None, Some(3), Some(5), None, None],
+                ],
+                [
+                    [Some(0), Some(8), None, Some(2), None, Some(4)],
+                    [Some(1), None, Some(3), Some(5), None, None],
+                ],
+                [
+                    [Some(0), Some(8), None, Some(2), None, Some(4)],
+                    [Some(1), None, Some(3), Some(5), None, None],
+                ],
+                [
+                    [Some(0), Some(8), None, Some(2), None, Some(4)],
+                    [Some(1), None, Some(3), Some(5), None, None],
+                ],
+                [
+                    [Some(0), Some(8), None, Some(2), None, Some(4)],
+                    [Some(1), None, Some(3), Some(5), None, Some(11)],
+                ],
+                [
+                    [Some(0), Some(8), None, Some(2), Some(12), Some(4)],
+                    [Some(1), None, Some(3), Some(5), None, Some(11)],
+                ],
+                [
+                    [Some(0), Some(8), None, Some(2), Some(12), Some(4)],
+                    [Some(1), None, Some(3), Some(5), Some(13), Some(11)],
+                ],
+                [
+                    [Some(0), Some(8), Some(14), Some(2), Some(12), Some(4)],
+                    [Some(1), None, Some(3), Some(5), Some(13), Some(11)],
+                ],
+                [
+                    [Some(0), Some(8), Some(14), Some(2), Some(12), Some(4)],
+                    [Some(1), Some(15), Some(3), Some(5), Some(13), Some(11)],
+                ],
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|(i, pieces)| {
                 let mut facet = DevelopmentFacet::default();
                 facet.move_index = i + 1;
                 facet.pieces_moved = pieces.clone();
-                facet.dev_indices = pieces.iter().flat_map(|a| a.iter()).filter_map(|i| *i).collect();
+                facet.dev_indices =
+                    pieces.iter().flat_map(|a| a.iter()).filter_map(|i| *i).collect();
                 facet
-            }).collect(),
+            })
+            .collect(),
         )
     }
 }

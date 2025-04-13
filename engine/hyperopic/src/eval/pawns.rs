@@ -5,13 +5,13 @@ use std::hash::Hasher;
 
 use rustc_hash::FxHasher;
 
+use crate::Board;
 use crate::board::iter;
 use crate::constants::boards::{ADJACENT_FILES, EMPTY, FILES, RANKS};
 use crate::constants::{class, create_piece, lift, side, square_rank};
 use crate::moves::Move;
 use crate::node::{EvalFacet, Evaluation};
 use crate::position::Position;
-use crate::Board;
 
 const WHITE_HALF: Board = RANKS[0] | RANKS[1] | RANKS[2] | RANKS[3];
 const BLACK_HALF: Board = RANKS[4] | RANKS[5] | RANKS[6] | RANKS[7];
@@ -292,7 +292,7 @@ mod simple_test {
     use crate::constants::square::*;
     use crate::eval::pawns::{count_doubled_pawns, count_isolated_pawns};
     use crate::test::reflect_board;
-    use crate::{board, Board};
+    use crate::{Board, board};
 
     fn execute_test(
         under_test: fn(Board, Board) -> i32,

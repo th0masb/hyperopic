@@ -36,7 +36,7 @@ fn promotion_eval_bug() {
         "1. d4 d5 2. e3 Nf6 3. c4 c6 4. Nc3 e6 5. Bd3 dxc4 6. Bxc4 b5 7. Be2 Bd6 8. e4 b4 9. e5 bxc3 10. exf6 O-O 11. fxg7",
         "f8e8",
         "c3b2",
-        4
+        4,
     )
 }
 

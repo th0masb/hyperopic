@@ -1,9 +1,9 @@
 use crate::config::{ChallengeEvent, KnownUserChallenge, UserConfig};
 use itertools::Itertools;
-use lambda_runtime::{service_fn, Error, LambdaEvent};
-use lichess_api::ratings::{ChallengeRequest, TimeLimits};
+use lambda_runtime::{Error, LambdaEvent, service_fn};
 use lichess_api::LichessClient;
-use rand::prelude::SliceRandom;
+use lichess_api::ratings::{ChallengeRequest, TimeLimits};
+use rand::prelude::IndexedRandom;
 use simple_logger::SimpleLogger;
 use std::iter::repeat;
 use std::time::Duration;
@@ -63,7 +63,7 @@ async fn random_challenge_handler(
     rated: bool,
 ) -> Result<(), Error> {
     let chosen_time_limit =
-        time_limit_options.choose(&mut rand::thread_rng()).expect("No time limit options given!");
+        time_limit_options.choose(&mut rand::rng()).expect("No time limit options given!");
 
     let client = LichessClient::new(config.token.clone());
 

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
-use lichess_events::events::LichessEvent;
 use lichess_events::EventProcessor;
+use lichess_events::events::LichessEvent;
 
 use crate::challenge::ChallengeService;
 use crate::gamestart::GameStartService;

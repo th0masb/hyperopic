@@ -1,9 +1,9 @@
+use crate::Side;
+use crate::SideMap;
 use crate::constants::{corner_side, side};
 use crate::moves::Move;
 use crate::node::{EvalFacet, Evaluation};
 use crate::position::Position;
-use crate::Side;
-use crate::SideMap;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct CastlingFacet {
@@ -19,11 +19,7 @@ impl Default for CastlingFacet {
 
 impl CastlingFacet {
     fn penalty(&self, side: Side, rights_left: usize) -> i32 {
-        if self.castling_status[side] {
-            0
-        } else {
-            (2i32 - rights_left as i32) * self.penalty
-        }
+        if self.castling_status[side] { 0 } else { (2i32 - rights_left as i32) * self.penalty }
     }
 }
 

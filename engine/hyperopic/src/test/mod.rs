@@ -2,7 +2,7 @@ use crate::board::iter;
 use crate::constants::{reflect_corner, reflect_piece, reflect_side, reflect_square};
 use crate::moves::Move;
 use crate::position::{ConstrainedPieces, Position};
-use crate::{constants, Board, Symmetric};
+use crate::{Board, Symmetric, constants};
 use std::array;
 
 mod best_move;
@@ -80,11 +80,11 @@ impl Symmetric for ConstrainedPieces {
 }
 
 mod symmetry_test {
+    use crate::Symmetric;
     use crate::constants::piece;
     use crate::constants::square::*;
     use crate::moves::Move;
     use crate::position::Position;
-    use crate::Symmetric;
     use Move::Normal;
 
     #[test]

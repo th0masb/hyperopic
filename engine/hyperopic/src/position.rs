@@ -1,6 +1,6 @@
 use crate::moves::{Move, Move::*, MoveFacet, Moves};
 use crate::{
-    board, hash, Board, Corner, CornerMap, Piece, PieceMap, Side, SideMap, Square, SquareMap,
+    Board, Corner, CornerMap, Piece, PieceMap, Side, SideMap, Square, SquareMap, board, hash,
 };
 use std::cmp::{max, min};
 
@@ -13,7 +13,7 @@ use crate::constants::{
     class, corner, create_piece, first_square, in_board, intersects, is_superset, lift,
     piece_class, piece_side, reflect_piece, reflect_side, side, square_file, square_rank,
 };
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use rustc_hash::FxHashMap;
 
 /// Represents the possible ways a game can be terminated, we only
@@ -525,24 +525,27 @@ impl Position {
         match facet {
             MoveFacet::Checking => {
                 let passive_king = create_piece(reflect_side(self.active), class::K);
-                if let Some(passive_king_loc) = iter(self.piece_boards[passive_king]).next() {
-                    // Checks are made up of discoveries, direct attacks or castling (handled separately)
-                    let mut result = self.compute_discoveries_on(passive_king_loc).unwrap();
-                    let occupied = union_boards(&self.side_boards);
-                    (0..5).for_each(|class| {
-                        let piece = create_piece(self.active, class);
-                        // Reflect the piece to handle pawns correctly
-                        let attack_squares =
-                            control(reflect_piece(piece), passive_king_loc, occupied);
-                        iter(self.piece_boards[piece]).for_each(|sq| {
-                            result.0 |= lift(sq);
-                            result.1[sq] |= attack_squares;
-                        })
-                    });
-                    result
-                } else {
-                    // No checking moves if the other king isn't on the board
-                    ConstrainedPieces(0, [0; 64])
+                match iter(self.piece_boards[passive_king]).next() {
+                    Some(passive_king_loc) => {
+                        // Checks are made up of discoveries, direct attacks or castling (handled separately)
+                        let mut result = self.compute_discoveries_on(passive_king_loc).unwrap();
+                        let occupied = union_boards(&self.side_boards);
+                        (0..5).for_each(|class| {
+                            let piece = create_piece(self.active, class);
+                            // Reflect the piece to handle pawns correctly
+                            let attack_squares =
+                                control(reflect_piece(piece), passive_king_loc, occupied);
+                            iter(self.piece_boards[piece]).for_each(|sq| {
+                                result.0 |= lift(sq);
+                                result.1[sq] |= attack_squares;
+                            })
+                        });
+                        result
+                    }
+                    _ => {
+                        // No checking moves if the other king isn't on the board
+                        ConstrainedPieces(0, [0; 64])
+                    }
                 }
             }
             MoveFacet::Attacking => {
@@ -584,7 +587,7 @@ impl Position {
         passive_control: Board,
         mode: CastlingMoveMode,
     ) -> impl Iterator<Item = Move> + 'a {
-        self.castling_rights.iter().enumerate().filter(|(_, &allowed)| allowed).filter_map(
+        self.castling_rights.iter().enumerate().filter(|&(_, &allowed)| allowed).filter_map(
             move |(corner, _)| {
                 let details = &CASTLING_DETAILS[corner];
                 let king = create_piece(self.active, class::K);
