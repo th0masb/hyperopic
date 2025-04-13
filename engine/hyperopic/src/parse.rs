@@ -1,16 +1,16 @@
 use std::str::FromStr;
 
-use anyhow::{anyhow, Error, Result};
+use Move::{Castle, Enpassant, Normal, Null, Promote};
+use anyhow::{Error, Result, anyhow};
 use lazy_static::lazy_static;
 use regex::Regex;
-use Move::{Castle, Enpassant, Normal, Null, Promote};
 
 use crate::board::iter;
 use crate::constants::{class, lift, piece_class, square_file, square_rank};
 use crate::moves::{Move, Moves};
 use crate::{Board, Class, Piece, PieceMap, Square};
 
-use crate::position::{Position, CASTLING_DETAILS};
+use crate::position::{CASTLING_DETAILS, Position};
 
 impl FromStr for Position {
     type Err = Error;

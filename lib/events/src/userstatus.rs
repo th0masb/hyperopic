@@ -1,7 +1,7 @@
 use serde_derive::Deserialize;
 use std::time::Instant;
 
-use anyhow::{anyhow, Error, Result};
+use anyhow::{Error, Result, anyhow};
 use tokio::time::Duration;
 
 const STATUS_ENDPOINT: &'static str = "https://lichess.org/api/users/status";

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use clap::Parser;
@@ -11,8 +11,7 @@ use lichess_events::{EventProcessor, LichessEvent, StreamParams};
 use lichess_game::{EmptyCancellationHook, Metadata};
 use log::LevelFilter;
 use openings::{DynamoOpeningService, OpeningTable};
-use rand::prelude::SliceRandom;
-use rand::thread_rng;
+use rand::prelude::{IndexedRandom};
 use simple_logger::SimpleLogger;
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
@@ -108,7 +107,7 @@ async fn search_for_game(args: &Args, bot_id: String, mut rx: Receiver<GameStart
                 *tracker.activity.entry(game_id.opponent_id).or_insert(1) -= 1;
             }
             _ = poll_interval.tick() => {
-                if let Err(e) = execute_challenge_poll(
+                match execute_challenge_poll(
                     args,
                     &mut tracker,
                     bot_id.as_str(),
@@ -117,13 +116,13 @@ async fn search_for_game(args: &Args, bot_id: String, mut rx: Receiver<GameStart
                         offset_below: args.rating_offset_below,
                         offset_above: args.rating_offset_above
                     },
-                ).await {
+                ).await { Err(e) => {
                     log::error!("Error in challenge poll: {}", e);
                     backoff_index += 1;
                     backoff(backoff_index).await;
-                } else {
+                } _ => {
                     backoff_index = 0;
-                };
+                }};
             }
         }
     }
@@ -208,7 +207,7 @@ async fn execute_challenge_poll(
             .unwrap()
             .clone()
     } else if !active.is_empty() {
-        active.choose(&mut thread_rng()).unwrap().clone()
+        active.choose(&mut rand::rng()).unwrap().clone()
     } else {
         inactive.into_iter().min_by_key(|b| tracker.activity[&b.id]).unwrap()
     };

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use lambda_runtime::{service_fn, Error, LambdaEvent};
+use lambda_runtime::{Error, LambdaEvent, service_fn};
 use log;
 use simple_logger::SimpleLogger;
 

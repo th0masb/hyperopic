@@ -4,7 +4,7 @@ pub mod ratings;
 use crate::ratings::{
     ChallengeRequest, OnlineBot, TimeLimitType, UserDetails, UserDetailsGamePerf,
 };
-use anyhow::{anyhow, Error, Result};
+use anyhow::{Error, Result, anyhow};
 pub use endings::LichessEndgameClient;
 use reqwest::StatusCode;
 use serde_derive::Deserialize;

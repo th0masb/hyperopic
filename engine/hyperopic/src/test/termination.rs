@@ -142,6 +142,6 @@ fn repetition_11() {
     execute_test(
         Some(TerminalState::Draw),
         "1. e3 e6 2. Qf3 Nf6 3. Kd1 Nc6 4. d4 d5 5. Bb5 e5 6. Qg3 exd4 7. exd4 Ne4 8. Qe3 Be7 \
-        9. f3 Nd6 10. Bxc6+ bxc6 11. h4 Nf5 12. Qc3 Bd7 13. h5 Ng3 14. Rh2 Nf1 15. Rh1 Ng3 16. Rh2 Nf1 17. Rh1 Ng3"
+        9. f3 Nd6 10. Bxc6+ bxc6 11. h4 Nf5 12. Qc3 Bd7 13. h5 Ng3 14. Rh2 Nf1 15. Rh1 Ng3 16. Rh2 Nf1 17. Rh1 Ng3",
     )
 }

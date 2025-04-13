@@ -3,10 +3,10 @@ use std::time::{Duration, Instant};
 use reqwest::blocking::{Client, Response};
 use serde_derive::Deserialize;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use hyperopic::moves::Move;
 use hyperopic::position::Position;
-use hyperopic::{union_boards, LookupMoveService};
+use hyperopic::{LookupMoveService, union_boards};
 
 const TIMEOUT_MS: u64 = 1000;
 const MAX_PIECE_COUNT: u32 = 7;

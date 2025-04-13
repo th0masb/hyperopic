@@ -1,5 +1,5 @@
 use crate::position::{ConstrainedPieces, Position};
-use crate::{board, square_map, Square, Symmetric};
+use crate::{Square, Symmetric, board, square_map};
 
 use crate::constants::reflect_square;
 use crate::constants::square::*;

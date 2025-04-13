@@ -4,12 +4,12 @@ use std::time::{Duration, Instant, SystemTime};
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use lambda_runtime::{service_fn, Context, Error, LambdaEvent};
+use lambda_runtime::{Context, Error, LambdaEvent, service_fn};
 use rusoto_core::Region;
 use rusoto_lambda::{InvocationRequest, InvokeAsyncRequest, Lambda, LambdaClient};
 use simple_logger::SimpleLogger;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use hyperopic::moves::Move;
 use hyperopic::position::Position;
 use lambda_payloads::chessgame::*;

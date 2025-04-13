@@ -1,8 +1,8 @@
-use std::cmp;
 use MoveFacet::{Attacking, Checking, Promoting};
+use std::cmp;
 
-use anyhow::Result;
 use Move::Null;
+use anyhow::Result;
 
 use crate::constants::{class, piece_class};
 use crate::moves::Move::{Castle, Enpassant, Normal, Promote};

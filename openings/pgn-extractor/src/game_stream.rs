@@ -99,7 +99,9 @@ mod test {
         let under_test = super::game_continuation();
         assert!(under_test.is_match("9.Bd3 Nc5 10.Bc2 a5 11.O-O Qd6 12.Qe1 Bd7 13.Qh4 Rae8"));
         assert!(under_test.is_match("16.a3 f5 17.b4 Na6 18.c5 Qf6 19.Qxf6"));
-        assert!(!under_test.is_match("1.c4 Nf6 2.d4 g6 3.Nc3 Bg7 4.e4 d6 5.f4 O-O 6.Nf3 e5 7.fxe5"));
+        assert!(
+            !under_test.is_match("1.c4 Nf6 2.d4 g6 3.Nc3 Bg7 4.e4 d6 5.f4 O-O 6.Nf3 e5 7.fxe5")
+        );
         assert!(!under_test.is_match("[Event \"New York\"]"));
     }
 

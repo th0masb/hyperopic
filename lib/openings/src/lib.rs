@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use anyhow::{anyhow, Error, Result};
+use anyhow::{Error, Result, anyhow};
+use hyperopic::LookupMoveService;
 use hyperopic::moves::Move;
 use hyperopic::position::Position;
-use hyperopic::LookupMoveService;
 use itertools::Itertools;
 use log::info;
 use rusoto_core::Region;
@@ -105,20 +105,20 @@ impl DynamoOpeningService {
     }
 }
 
-fn choose_move(available: &Vec<String>, f: impl Fn() -> usize) -> Result<String> {
+fn choose_move(available: &Vec<String>, f: impl Fn() -> u64) -> Result<String> {
     let records = available
         .into_iter()
         .filter_map(|s| MoveRecord::from_str(s.as_str()).ok())
         .sorted_by_key(|r| r.freq)
         .collect::<Vec<_>>();
 
-    let frequency_sum = records.iter().map(|r| r.freq).sum::<usize>();
+    let frequency_sum = records.iter().map(|r| r.freq).sum::<u64>();
 
     if frequency_sum == 0 {
         Err(anyhow!("Freq is 0 for {:?}", available))
     } else {
         let record_choice = f() % frequency_sum;
-        let mut sum = 0usize;
+        let mut sum = 0u64;
         for record in records {
             if sum <= record_choice && record_choice < sum + record.freq {
                 return Ok(record.mv);
@@ -133,7 +133,7 @@ const MOVE_FREQ_SEPARATOR: &'static str = ":";
 
 struct MoveRecord {
     mv: String,
-    freq: usize,
+    freq: u64,
 }
 
 impl FromStr for MoveRecord {
@@ -143,7 +143,7 @@ impl FromStr for MoveRecord {
         let split = s.split(MOVE_FREQ_SEPARATOR).map(|s| s.to_string()).collect::<Vec<_>>();
         Ok(MoveRecord {
             mv: split.get(0).ok_or(anyhow!("Cannot parse move from {}", s))?.clone(),
-            freq: split.get(1).ok_or(anyhow!("Cannot parse freq from {}", s))?.parse::<usize>()?,
+            freq: split.get(1).ok_or(anyhow!("Cannot parse freq from {}", s))?.parse()?,
         })
     }
 }

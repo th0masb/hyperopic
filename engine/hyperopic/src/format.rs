@@ -1,7 +1,7 @@
 use crate::constants::{piece_class, side};
 use crate::moves::Move;
 use crate::parse::StringIndexMap;
-use crate::position::{Position, CASTLING_DETAILS};
+use crate::position::{CASTLING_DETAILS, Position};
 
 use lazy_static::lazy_static;
 use std::fmt::{Display, Formatter};
@@ -115,11 +115,7 @@ fn to_fen_side(board: &Position) -> String {
 fn to_fen_castling_rights(board: &Position) -> String {
     let rights =
         (0..4).filter(|c| board.castling_rights[*c]).map(|c| CORNERS[c]).collect::<String>();
-    if rights.is_empty() {
-        format!("-")
-    } else {
-        rights
-    }
+    if rights.is_empty() { format!("-") } else { rights }
 }
 
 fn to_fen_enpassant(board: &Position) -> String {

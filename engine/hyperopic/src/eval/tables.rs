@@ -6,7 +6,7 @@ use crate::{ClassMap, Piece, SideMap, Square, SquareMap, Symmetric};
 
 use crate::moves::Move;
 use crate::node::{EvalFacet, Evaluation};
-use crate::position::{Position, CASTLING_DETAILS};
+use crate::position::{CASTLING_DETAILS, Position};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PieceSquareTablesFacet {
