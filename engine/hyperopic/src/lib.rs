@@ -47,7 +47,7 @@ pub type CornerMap<T> = [T; 4];
 #[macro_export]
 macro_rules! board {
     // Individual squares
-    ($( $x:expr ),*) => {
+    ($( $x:expr_2021 ),*) => {
         {
             use crate::constants::lift;
             let mut board = 0u64;
@@ -56,7 +56,7 @@ macro_rules! board {
         }
     };
     // Cords inclusive of source
-    ($( $x:expr => $($y:expr),+ );+) => {
+    ($( $x:expr_2021 => $($y:expr_2021),+ );+) => {
         {
             use crate::board::compute_cord;
             let mut board = 0u64;
@@ -65,7 +65,7 @@ macro_rules! board {
         }
     };
     // Cords exclusive of source
-    ($( ~$x:expr => $($y:expr),+ );+) => {
+    ($( ~$x:expr_2021 => $($y:expr_2021),+ );+) => {
         {
             use crate::board::compute_cord;
             use crate::constants::lift;
@@ -78,7 +78,7 @@ macro_rules! board {
 
 #[macro_export]
 macro_rules! square_map {
-    ($( $($x:expr),+ => $y:expr),+) => {
+    ($( $($x:expr_2021),+ => $y:expr_2021),+) => {
         {
             use std::default::Default;
             let mut result = [Default::default(); 64];
@@ -166,7 +166,7 @@ mod macro_test {
 
     use crate::constants::piece;
     use crate::constants::square::*;
-    use crate::{board, Piece, SquareMap};
+    use crate::{Piece, SquareMap, board};
 
     #[test]
     fn board_macro() {

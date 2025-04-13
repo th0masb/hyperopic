@@ -5,12 +5,12 @@ mod szukstra_tal;
 
 use std::collections::BTreeSet;
 
+use crate::Symmetric;
 use crate::moves::MoveFacet::{Attacking, Checking, Promoting};
 use crate::moves::{Move, Moves};
 use crate::parse::StringIndexMap;
 use crate::position::Position;
-use crate::Symmetric;
-use anyhow::{anyhow, Error, Result};
+use anyhow::{Error, Result, anyhow};
 use std::str::FromStr;
 
 type MoveSet = BTreeSet<Move>;

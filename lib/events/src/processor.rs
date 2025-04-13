@@ -1,6 +1,6 @@
+use crate::EventProcessor;
 use crate::events::LichessEvent;
 use crate::userstatus::StatusService;
-use crate::EventProcessor;
 use response_stream::LoopAction;
 
 pub struct StreamLineProcessor<E: EventProcessor> {

@@ -1,12 +1,12 @@
 [package]
 name = "lichess_events"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-reqwest = { version = "0.11.18", default_features = false, features = ["rustls-tls", "json", "stream"] }
+reqwest = { version = "0.*", features = ["rustls-tls", "json", "stream"] , default-features = false}
 tokio = { version = "1.28.1", features = ["full"] }
 serde = "1.0.163"
 serde_derive = "1.0.163"

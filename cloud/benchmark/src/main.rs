@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use hyperopic::search::{SearchParameters, TranspositionsImpl};
 use itertools::Itertools;
-use lambda_runtime::{service_fn, Context, Error, LambdaEvent};
+use lambda_runtime::{Context, Error, LambdaEvent, service_fn};
 use simple_logger::SimpleLogger;
 
 use lambda_payloads::benchmark::*;

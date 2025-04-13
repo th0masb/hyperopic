@@ -3,7 +3,7 @@ use crate::constants::{class, create_piece, lift, reflect_side, side};
 use crate::moves::Move;
 use crate::node::{EvalFacet, Evaluation};
 use crate::position::Position;
-use crate::{union_boards, Side};
+use crate::{Side, union_boards};
 use std::cmp::min;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -85,8 +85,8 @@ impl EvalFacet for SafetyFacet {
 #[cfg(test)]
 mod test {
     use crate::constants::{reflect_side, side};
-    use crate::eval::safety::SafetyCounts;
     use crate::eval::SafetyFacet;
+    use crate::eval::safety::SafetyCounts;
     use crate::position::Position;
     use crate::{Side, Symmetric};
 

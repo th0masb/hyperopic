@@ -1,20 +1,20 @@
 [package]
 name = "lichess_game"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 hyperopic = { path = "../../engine/hyperopic" }
-reqwest = { version = "0.11.18", default_features = false, features = ["rustls-tls", "blocking", "json"] }
-tokio = { version = "^1.28.1", features = ["full"] }
-tokio-util = "^0.7.8"
+reqwest = { version = "0.*", features = ["rustls-tls", "blocking", "json"] , default-features = false}
+tokio = { version = "1.28.1", features = ["full"] }
+tokio-util = "0.7.8"
 log = "0.4.17"
 serde = "1.0.163"
 serde_derive = "1.0.163"
 serde_json = "1.0.96"
 async-trait = "0.1.68"
-anyhow = "^1.0.71"
+anyhow = "1.0.71"
 response_stream = { path = "../response-stream" }
 lichess_api = { path = "../lichess" }

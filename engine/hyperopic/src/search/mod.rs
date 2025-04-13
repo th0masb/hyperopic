@@ -1,9 +1,9 @@
 use std::time::{Duration, Instant};
 
-use serde::ser::SerializeStruct;
 use serde::Serializer;
+use serde::ser::SerializeStruct;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use end::SearchEnd;
 
 use crate::moves::Move;

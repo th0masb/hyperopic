@@ -4,8 +4,8 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::time::Instant;
 
-use crate::search::SearchParameters;
 use crate::TranspositionsImpl;
+use crate::search::SearchParameters;
 
 #[rustfmt::skip]
 /// Run on system76

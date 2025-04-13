@@ -6,10 +6,10 @@ use lichess_api::LichessChatRoom;
 use reqwest::StatusCode;
 use tokio_util::sync::CancellationToken;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
+use hyperopic::Side;
 use hyperopic::constants::side;
 use hyperopic::position::Position;
-use hyperopic::Side;
 
 use crate::compute::MoveChooser;
 use crate::events::{Clock, GameEvent, GameFull, GameState};

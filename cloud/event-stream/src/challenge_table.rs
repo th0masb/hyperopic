@@ -3,7 +3,7 @@ use std::str::FromStr;
 use std::time::SystemTime;
 
 use crate::config::AwsResourceId;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use rusoto_core::Region;
 use rusoto_dynamodb::{
     AttributeValue, AttributeValueUpdate, DynamoDb, DynamoDbClient, PutItemInput, UpdateItemInput,

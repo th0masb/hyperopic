@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::{anyhow, Error, Result};
+use anyhow::{Error, Result, anyhow};
 use lichess_api::LichessClient;
 use lichess_events::events::GameStart;
 use rusoto_core::Region;
