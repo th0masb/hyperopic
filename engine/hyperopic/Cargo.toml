@@ -13,6 +13,7 @@ rustc-hash = "2.1.1"
 serde = "1.0.171"
 serde_json = "1.0.102"
 itertools = "0.*"
+threadpool = "1.8.1"
 
 [dev-dependencies]
 dotenv = "0.15.0"
