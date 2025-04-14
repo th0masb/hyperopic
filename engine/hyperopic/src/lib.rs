@@ -1,3 +1,4 @@
+use std::sync::{mpsc, Arc};
 use crate::moves::Move;
 use crate::node::TreeNode;
 use crate::position::Position;
@@ -6,6 +7,7 @@ use crate::timing::TimeAllocator;
 use anyhow::Result;
 pub use board::union_boards;
 use std::time::{Duration, Instant};
+use threadpool::ThreadPool;
 
 mod board;
 mod eval;
@@ -47,7 +49,7 @@ pub type CornerMap<T> = [T; 4];
 #[macro_export]
 macro_rules! board {
     // Individual squares
-    ($( $x:expr_2021 ),*) => {
+    ($( $x:expr ),*) => {
         {
             use crate::constants::lift;
             let mut board = 0u64;
@@ -56,7 +58,7 @@ macro_rules! board {
         }
     };
     // Cords inclusive of source
-    ($( $x:expr_2021 => $($y:expr_2021),+ );+) => {
+    ($( $x:expr => $($y:expr),+ );+) => {
         {
             use crate::board::compute_cord;
             let mut board = 0u64;
@@ -65,7 +67,7 @@ macro_rules! board {
         }
     };
     // Cords exclusive of source
-    ($( ~$x:expr_2021 => $($y:expr_2021),+ );+) => {
+    ($( ~$x:expr => $($y:expr),+ );+) => {
         {
             use crate::board::compute_cord;
             use crate::constants::lift;
@@ -78,7 +80,7 @@ macro_rules! board {
 
 #[macro_export]
 macro_rules! square_map {
-    ($( $($x:expr_2021),+ => $y:expr_2021),+) => {
+    ($( $($x:expr),+ => $y:expr),+) => {
         {
             use std::default::Default;
             let mut result = [Default::default(); 64];
@@ -113,6 +115,7 @@ pub struct Engine {
     transpositions: TranspositionsImpl,
     lookups: Vec<Box<dyn LookupMoveService>>,
     timing: TimeAllocator,
+    threads: ThreadPool,
 }
 
 impl Engine {
@@ -121,13 +124,15 @@ impl Engine {
             transpositions: TranspositionsImpl::new(table_size),
             lookups,
             timing: TimeAllocator::default(),
+            threads: ThreadPool::new(1),
         }
     }
 
-    pub fn compute_move(&mut self, input: ComputeMoveInput) -> Result<ComputeMoveOutput> {
+    pub fn compute_move(&mut self, input: ComputeMoveInput) -> mpsc::Receiver<Result<ComputeMoveOutput>> {
+        let (tx, rx) = mpsc::channel();
         let start = Instant::now();
         let node: TreeNode = input.position.into();
-        match self.perform_lookups(node.position().clone()) {
+        tx.send(match self.perform_lookups(node.position().clone()) {
             Some(mv) => Ok(ComputeMoveOutput { best_move: mv, search_details: None }),
             None => {
                 let position_count = node.position().history.len();
@@ -147,7 +152,8 @@ impl Engine {
                     search_details: Some(outcome),
                 })
             }
-        }
+        }).expect("Unable to send result");
+        rx
     }
 
     fn perform_lookups(&mut self, position: Position) -> Option<Move> {

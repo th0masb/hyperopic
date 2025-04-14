@@ -24,7 +24,7 @@ impl MoveChooser for Engine {
     ) -> Result<Move> {
         let position = moves_played.parse()?;
         tokio::task::block_in_place(|| {
-            self.compute_move(ComputeMoveInput { position, remaining, increment })
+            self.compute_move(ComputeMoveInput { position, remaining, increment }).recv().unwrap()
         })
         .map(|output| {
             match output.search_details {

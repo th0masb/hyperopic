@@ -16,6 +16,7 @@ members = [
     "lib/events",
     "lib/lichess",
     "lib/openings",
+    "engine/hyperopic-cli",
 ]
 
 [profile.release]

@@ -29,7 +29,7 @@ async fn move_handler(event: LambdaEvent<ChooseMoveEvent>) -> Result<ChooseMoveO
         position,
         remaining: Duration::from_millis(choose_move.clock_millis.remaining),
         increment: Duration::from_millis(choose_move.clock_millis.increment),
-    })?;
+    }).recv().unwrap()?;
     Ok(ChooseMoveOutput {
         best_move: output.best_move.to_string(),
         search_details: output.search_details.map(|details| SearchDetails {
