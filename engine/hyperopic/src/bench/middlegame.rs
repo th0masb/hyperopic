@@ -2,6 +2,7 @@ use crate::position::Position;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::sync::Arc;
 use std::time::Instant;
 
 use crate::TranspositionsImpl;
@@ -80,7 +81,7 @@ fn benchmark() -> Result<(), Box<dyn Error>> {
         }
         best_moves.push(crate::search::search(position.into(), SearchParameters {
             end: depth,
-            table: &mut TranspositionsImpl::new(table_size),
+            table: Arc::new(TranspositionsImpl::new(table_size)),
         })?)
     }
     println!("Successfully computed {} moves at depth {} in {}ms", best_moves.len(), depth, start.elapsed().as_millis());

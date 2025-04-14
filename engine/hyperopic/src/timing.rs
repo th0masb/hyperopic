@@ -4,6 +4,7 @@ const DEFAULT_MOVE_LATENCY_MS: u64 = 200;
 const DEFAULT_MIN_COMPUTE_TIME_MS: u64 = 200;
 const INCREMENT_ONLY_THRESHOLD_MS: u64 = 5000;
 
+#[derive(Debug, Clone)]
 pub struct TimeAllocator {
     /// Given the number of moves played return the expected value of moves
     /// still to play.

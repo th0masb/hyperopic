@@ -38,7 +38,7 @@ impl TryFrom<OpeningTable> for DynamoOpeningService {
 }
 
 impl LookupMoveService for DynamoOpeningService {
-    fn lookup(&mut self, position: Position) -> Result<Option<Move>> {
+    fn lookup(&self, position: Position) -> Result<Option<Move>> {
         futures::executor::block_on(async {
             let pos_count = position.history.len();
             if pos_count > self.params.max_depth as usize {

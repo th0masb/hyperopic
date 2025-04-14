@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use lambda_runtime::{Error, LambdaEvent, service_fn};
@@ -40,8 +41,8 @@ async fn move_handler(event: LambdaEvent<ChooseMoveEvent>) -> Result<ChooseMoveO
     })
 }
 
-fn load_lookup_services(features: &Vec<ChooseMoveFeature>) -> Vec<Box<dyn LookupMoveService>> {
-    let mut services: Vec<Box<dyn LookupMoveService>> = vec![];
+fn load_lookup_services(features: &Vec<ChooseMoveFeature>) -> Vec<Arc<dyn LookupMoveService + Send + Sync>> {
+    let mut services: Vec<Arc<dyn LookupMoveService + Send + Sync>> = vec![];
     if !features.contains(&ChooseMoveFeature::DisableOpeningsLookup) {
         let table_var = std::env::var(TABLE_ENV_KEY)
             .expect(format!("No value found for env var {}", TABLE_ENV_KEY).as_str());
@@ -49,10 +50,10 @@ fn load_lookup_services(features: &Vec<ChooseMoveFeature>) -> Vec<Box<dyn Lookup
             .map_err(|e| anyhow!(e))
             .and_then(|table| DynamoOpeningService::try_from(table))
             .expect(format!("Could not parse table config {}", table_var).as_str());
-        services.push(Box::new(service));
+        services.push(Arc::new(service));
     }
     if !features.contains(&ChooseMoveFeature::DisableEndgameLookup) {
-        services.push(Box::new(LichessEndgameClient::default()));
+        services.push(Arc::new(LichessEndgameClient::default()));
     }
     services
 }

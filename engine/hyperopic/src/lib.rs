@@ -94,8 +94,8 @@ pub trait Symmetric {
     fn reflect(&self) -> Self;
 }
 
-pub trait LookupMoveService: Send + Sync {
-    fn lookup(&mut self, position: Position) -> Result<Option<Move>>;
+pub trait LookupMoveService {
+    fn lookup(&self, position: Position) -> Result<Option<Move>>;
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -112,58 +112,60 @@ pub struct ComputeMoveOutput {
 }
 
 pub struct Engine {
-    transpositions: TranspositionsImpl,
-    lookups: Vec<Box<dyn LookupMoveService>>,
+    transpositions: Arc<TranspositionsImpl>,
+    lookups: Vec<Arc<dyn LookupMoveService + Send + Sync>>,
     timing: TimeAllocator,
     threads: ThreadPool,
 }
 
 impl Engine {
-    pub fn new(table_size: usize, lookups: Vec<Box<dyn LookupMoveService>>) -> Engine {
+    pub fn new(table_size: usize, lookups: Vec<Arc<dyn LookupMoveService + Send + Sync>>) -> Engine {
         Engine {
-            transpositions: TranspositionsImpl::new(table_size),
+            transpositions: Arc::new(TranspositionsImpl::new(table_size)),
             lookups,
             timing: TimeAllocator::default(),
             threads: ThreadPool::new(1),
         }
     }
 
-    pub fn compute_move(&mut self, input: ComputeMoveInput) -> mpsc::Receiver<Result<ComputeMoveOutput>> {
+    pub fn compute_move(&self, input: ComputeMoveInput) -> mpsc::Receiver<Result<ComputeMoveOutput>> {
         let (tx, rx) = mpsc::channel();
         let start = Instant::now();
-        let node: TreeNode = input.position.into();
-        tx.send(match self.perform_lookups(node.position().clone()) {
-            Some(mv) => Ok(ComputeMoveOutput { best_move: mv, search_details: None }),
-            None => {
-                let position_count = node.position().history.len();
-                search::search(
-                    node,
-                    SearchParameters {
-                        table: &mut self.transpositions,
-                        end: self.timing.allocate(
-                            position_count,
-                            input.remaining - start.elapsed(),
-                            input.increment,
-                        ),
-                    },
-                )
-                .map(|outcome| ComputeMoveOutput {
-                    best_move: outcome.best_move.clone(),
-                    search_details: Some(outcome),
-                })
-            }
-        }).expect("Unable to send result");
+        let lookups = self.lookups.clone();
+        let transpositions = self.transpositions.clone();
+        let timing = self.timing.clone();
+        self.threads.execute(move || {
+            let node: TreeNode = input.position.into();
+            let position_count = node.position().history.len();
+            let search_end = timing.allocate(position_count, input.remaining - start.elapsed(), input.increment);
+            tx.send(match perform_lookups(lookups, node.position().clone()) {
+                Some(mv) => Ok(ComputeMoveOutput { best_move: mv, search_details: None }),
+                None => {
+                    search::search(
+                        node,
+                        SearchParameters {
+                            table: transpositions,
+                            end: search_end,
+                        },
+                    )
+                        .map(|outcome| ComputeMoveOutput {
+                            best_move: outcome.best_move.clone(),
+                            search_details: Some(outcome),
+                        })
+                }
+            }).expect("Unable to send result");
+        });
         rx
     }
+}
 
-    fn perform_lookups(&mut self, position: Position) -> Option<Move> {
-        for service in self.lookups.iter_mut() {
-            if let Ok(Some(m)) = service.lookup(position.clone()) {
-                return Some(m);
-            }
+fn perform_lookups(lookups: Vec<Arc<dyn LookupMoveService + Send + Sync>>, position: Position) -> Option<Move> {
+    for service in lookups.iter() {
+        if let Ok(Some(m)) = service.lookup(position.clone()) {
+            return Some(m);
         }
-        None
     }
+    None
 }
 
 #[cfg(test)]

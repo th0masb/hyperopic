@@ -1,6 +1,7 @@
 use NodeType::{All, Cut, Pv};
 use anyhow::{Result, anyhow};
 use std::cmp::{max, min};
+use std::sync::Arc;
 use std::time::Instant;
 
 use crate::board::board_moves;
@@ -58,11 +59,11 @@ impl std::ops::Neg for SearchResponse {
     }
 }
 
-pub struct TreeSearcher<'a, E: SearchEnd, T: Transpositions> {
-    pub end: &'a E,
-    pub table: &'a mut T,
+pub struct TreeSearcher<E: SearchEnd, T: Transpositions> {
+    pub end: E,
+    pub table: Arc<T>,
     pub moves: MoveGenerator,
-    pub pv: &'a PrincipleVariation,
+    pub pv: PrincipleVariation,
 }
 
 fn reposition_first(dest: &mut Vec<SearchMove>, new_first: &Move) {
@@ -78,7 +79,7 @@ enum TableLookup {
     Hit(SearchResponse),
 }
 
-impl<E: SearchEnd, T: Transpositions> TreeSearcher<'_, E, T> {
+impl<E: SearchEnd, T: Transpositions> TreeSearcher<E, T> {
     pub fn search(&mut self, node: &mut TreeNode, mut ctx: Context) -> Result<SearchResponse> {
         if self.end.should_end(&ctx) {
             return Err(anyhow!("Terminated at depth {}", ctx.depth));
