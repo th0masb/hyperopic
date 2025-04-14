@@ -1,5 +1,6 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 use std::time::Instant;
 
 use hyperopic::search::{SearchParameters, TranspositionsImpl};
@@ -51,7 +52,7 @@ async fn handler(event: LambdaEvent<BenchStartEvent>) -> Result<BenchOutput, Err
         }
         let search_result = hyperopic::search::search(
             position.into(),
-            SearchParameters { end: e.depth, table: &mut TranspositionsImpl::new(e.table_size) },
+            SearchParameters { end: e.depth, table: Arc::new(TranspositionsImpl::new(e.table_size)) },
         )?;
         search_result.best_move.hash(&mut hasher);
         moves.push(search_result);

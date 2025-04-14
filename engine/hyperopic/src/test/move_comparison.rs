@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::position::Position;
 use crate::search::{SearchOutcome, SearchParameters, TranspositionsImpl};
 
@@ -71,7 +72,7 @@ fn search_after_move(pgn: &str, mv: &str, depth: usize) -> SearchOutcome {
     board.play(mv).expect(format!("{} invalid on {}", mv, board).as_str());
     crate::search::search(
         board.into(),
-        SearchParameters { end: depth, table: &mut TranspositionsImpl::new(TABLE_SIZE) },
+        SearchParameters { end: depth, table: Arc::new(TranspositionsImpl::new(TABLE_SIZE)) },
     )
     .map_err(|e| panic!("Could not search at {}: {}", pgn, e))
     .unwrap()

@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::moves::Move;
 use crate::node::TreeNode;
 use crate::position::Position;
@@ -20,8 +21,8 @@ fn test(position: &str, expected_move_pool: Vec<&str>, is_won: bool, depth: usiz
 }
 
 fn test_impl(board: TreeNode, expected_move_pool: Vec<Move>, is_won: bool, depth: usize) {
-    let mut table = TranspositionsImpl::new(TABLE_SIZE);
-    let params = SearchParameters { end: depth, table: &mut table };
+    let table = TranspositionsImpl::new(TABLE_SIZE);
+    let params = SearchParameters { end: depth, table: Arc::new(table) };
     match crate::search::search(board, params) {
         Err(message) => panic!("{}", message),
         Ok(outcome) => {

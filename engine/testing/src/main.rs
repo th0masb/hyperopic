@@ -15,6 +15,7 @@ use rand::prelude::IndexedRandom;
 use simple_logger::SimpleLogger;
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::sleep;
@@ -329,7 +330,7 @@ impl EventProcessor for EventProcessorImpl {
                     };
                     let engine = Engine::new(
                         self.table_size,
-                        vec![Box::new(opening_table()), Box::new(LichessEndgameClient::default())],
+                        vec![Arc::new(opening_table()), Arc::new(LichessEndgameClient::default())],
                     );
                     self.tx
                         .send(GameStarted {

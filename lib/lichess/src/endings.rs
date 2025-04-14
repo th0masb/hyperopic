@@ -18,7 +18,7 @@ pub struct LichessEndgameClient {
 }
 
 impl LookupMoveService for LichessEndgameClient {
-    fn lookup(&mut self, position: Position) -> Result<Option<Move>> {
+    fn lookup(&self, position: Position) -> Result<Option<Move>> {
         let query = position.to_string().replace(" ", "_");
         let piece_count = union_boards(&position.side_boards).count_ones();
         if piece_count > MAX_PIECE_COUNT {

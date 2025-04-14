@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use clap::{Parser, Subcommand};
 use itertools::Itertools;
 
@@ -64,7 +65,7 @@ impl DebugTranspositions {
 }
 
 impl Transpositions for DebugTranspositions {
-    fn get(&self, pos: &Position) -> Option<&TableEntry> {
+    fn get(&self, pos: &Position) -> Option<Arc<TableEntry>> {
         let index = (pos.key % self.store.len() as u64) as usize;
         if let Some((existing, n)) = self.store[index].as_ref() {
             if n.key == pos.key {
@@ -72,7 +73,7 @@ impl Transpositions for DebugTranspositions {
                 if existing.as_str() != new_pos.as_str() {
                     panic!("Collision: {} <-> {}", existing, new_pos)
                 }
-                Some(n)
+                Some(Arc::new(n.clone()))
             } else {
                 None
             }
@@ -81,7 +82,7 @@ impl Transpositions for DebugTranspositions {
         }
     }
 
-    fn put(&mut self, pos: &Position, root_index: u16, depth: u8, eval: i32, node_type: NodeType) {
+    fn put(&self, pos: &Position, root_index: u16, depth: u8, eval: i32, node_type: NodeType) {
         let index = (pos.key % self.store.len() as u64) as usize;
         let m = match &node_type {
             NodeType::Pv(path) => path.first().unwrap(),
@@ -92,7 +93,8 @@ impl Transpositions for DebugTranspositions {
             panic!("Bad node {} <-> {:?}", pos.to_string(), node_type)
         }
         let entry = TableEntry { key: pos.key, root_index, depth, eval, node_type };
-        self.store[index] = Some((to_table_id(&pos), entry))
+        //self.store[index] = Some((to_table_id(&pos), entry))
+        panic!("Do me")
     }
 }
 
@@ -107,7 +109,7 @@ fn run_search(mut state: TreeNode, depth: usize, table_size: usize) {
     } else {
         let outcome = hyperopic::search::search(
             state,
-            SearchParameters { end: depth, table: &mut DebugTranspositions::new(table_size) },
+            SearchParameters { end: depth, table: Arc::new(DebugTranspositions::new(table_size)) },
         );
         println!("{}", serde_json::to_string_pretty(&outcome.unwrap()).unwrap());
     }

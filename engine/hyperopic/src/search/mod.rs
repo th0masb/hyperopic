@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde::Serializer;
@@ -26,16 +27,16 @@ const DEPTH_UPPER_BOUND: usize = 20;
 /// API function for executing search on the calling thread, we pass a root
 /// state and a terminator and compute the best move we can make from this
 /// state within the duration constraints implied by the terminator.
-pub fn search<E: SearchEnd, T: Transpositions>(
+pub fn search<E: SearchEnd + Clone, T: Transpositions>(
     node: TreeNode,
     parameters: SearchParameters<E, T>,
 ) -> Result<SearchOutcome> {
     Search { node, end: parameters.end, transpositions: parameters.table }.search()
 }
 
-pub struct SearchParameters<'a, E: SearchEnd, T: Transpositions> {
+pub struct SearchParameters<E: SearchEnd + Clone, T: Transpositions> {
     pub end: E,
-    pub table: &'a mut T,
+    pub table: Arc<T>,
 }
 
 /// Data class composing information/result about/of a best move search.
@@ -103,10 +104,10 @@ mod searchoutcome_serialize_test {
     }
 }
 
-struct Search<'a, E: SearchEnd, T: Transpositions> {
+struct Search<E: SearchEnd, T: Transpositions> {
     node: TreeNode,
     end: E,
-    transpositions: &'a mut T,
+    transpositions: Arc<T>,
 }
 
 struct BestMoveResponse {
@@ -116,7 +117,7 @@ struct BestMoveResponse {
     depth: u8,
 }
 
-impl<E: SearchEnd, T: Transpositions> Search<'_, E, T> {
+impl<E: SearchEnd + Clone, T: Transpositions> Search<E, T> {
     pub fn search(&mut self) -> Result<SearchOutcome> {
         let search_start = Instant::now();
         let mut break_err = anyhow!("Terminated before search began");
@@ -161,10 +162,10 @@ impl<E: SearchEnd, T: Transpositions> Search<'_, E, T> {
 
         let root_index = self.node.position().history.len() as u16;
         let SearchResponse { eval, path } = TreeSearcher {
-            end: &self.end,
-            table: self.transpositions,
+            end: self.end.clone(),
+            table: self.transpositions.clone(),
             moves: MoveGenerator::default(),
-            pv,
+            pv: pv.clone(),
         }
         .search(
             &mut self.node,

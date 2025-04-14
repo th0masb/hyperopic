@@ -1,6 +1,7 @@
 use lazy_static::lazy_static;
 use std::fs;
 use std::io::{BufRead, BufReader};
+use std::sync::Arc;
 use std::time::Duration;
 
 use regex::Regex;
@@ -143,7 +144,7 @@ fn benchmark() {
             print_progress(case_count, err_count, search_duration.clone());
         }
         let board_fen = test_case.eval.position().to_string();
-        match search(test_case.eval, SearchParameters { end: depth, table: &mut TranspositionsImpl::new(table_size) }) {
+        match search(test_case.eval, SearchParameters { end: depth, table: Arc::new(TranspositionsImpl::new(table_size)) }) {
             Err(message) => panic!("{}", message),
             Ok(outcome) => {
                 search_duration += outcome.time;
