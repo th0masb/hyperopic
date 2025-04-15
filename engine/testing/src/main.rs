@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use clap::Parser;
 use hyperopic::Engine;
+use hyperopic::openings::OpeningService;
 use lazy_static::lazy_static;
 use lichess_api::ratings::{ChallengeRequest, OnlineBot, TimeLimitType, TimeLimits};
 use lichess_api::{LichessClient, LichessEndgameClient};
@@ -10,7 +11,7 @@ use lichess_events::events::{Challenge, GameStart};
 use lichess_events::{EventProcessor, LichessEvent, StreamParams};
 use lichess_game::{EmptyCancellationHook, Metadata};
 use log::LevelFilter;
-use openings::{DynamoOpeningService, OpeningTable};
+use openings::{DynamoOpeningClient, OpeningTable};
 use rand::prelude::IndexedRandom;
 use simple_logger::SimpleLogger;
 use std::collections::{HashMap, HashSet};
@@ -288,7 +289,7 @@ async fn run_event_stream(auth_token: String, bot_id: String, tx: Sender<GameSta
     .await;
 }
 
-fn opening_table() -> DynamoOpeningService {
+fn opening_table() -> OpeningService<DynamoOpeningClient> {
     OpeningTable {
         name: "MyopicOpenings".to_string(),
         region: "eu-west-2".to_string(),
@@ -297,6 +298,7 @@ fn opening_table() -> DynamoOpeningService {
         max_depth: 10,
     }
     .try_into()
+    .map(|client| OpeningService::new(client))
     .expect("Bad opening table config")
 }
 

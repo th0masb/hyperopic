@@ -8,9 +8,10 @@ use simple_logger::SimpleLogger;
 use anyhow::anyhow;
 use hyperopic::position::Position;
 use hyperopic::{ComputeMoveInput, Engine, LookupMoveService};
+use hyperopic::openings::OpeningService;
 use lambda_payloads::chessmove::*;
 use lichess_api::LichessEndgameClient;
-use openings::{DynamoOpeningService, OpeningTable};
+use openings::{DynamoOpeningClient, OpeningTable};
 
 const TABLE_SIZE: usize = 10000;
 const TABLE_ENV_KEY: &'static str = "APP_CONFIG";
@@ -48,9 +49,9 @@ fn load_lookup_services(features: &Vec<ChooseMoveFeature>) -> Vec<Arc<dyn Lookup
             .expect(format!("No value found for env var {}", TABLE_ENV_KEY).as_str());
         let service = serde_json::from_str::<OpeningTable>(table_var.as_str())
             .map_err(|e| anyhow!(e))
-            .and_then(|table| DynamoOpeningService::try_from(table))
+            .and_then(|table| DynamoOpeningClient::try_from(table))
             .expect(format!("Could not parse table config {}", table_var).as_str());
-        services.push(Arc::new(service));
+        services.push(Arc::new(OpeningService::new(service)));
     }
     if !features.contains(&ChooseMoveFeature::DisableEndgameLookup) {
         services.push(Arc::new(LichessEndgameClient::default()));
