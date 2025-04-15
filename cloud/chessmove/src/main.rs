@@ -25,12 +25,12 @@ async fn main() -> Result<(), Error> {
 async fn move_handler(event: LambdaEvent<ChooseMoveEvent>) -> Result<ChooseMoveOutput, Error> {
     let choose_move = &event.payload;
     let position = choose_move.moves_played.parse::<Position>()?;
-    let mut engine = Engine::new(TABLE_SIZE, load_lookup_services(&choose_move.features));
+    let engine = Engine::new(TABLE_SIZE, load_lookup_services(&choose_move.features));
     let output = engine.compute_move(ComputeMoveInput {
         position,
         remaining: Duration::from_millis(choose_move.clock_millis.remaining),
         increment: Duration::from_millis(choose_move.clock_millis.increment),
-    }).recv().unwrap()?;
+    })?;
     Ok(ChooseMoveOutput {
         best_move: output.best_move.to_string(),
         search_details: output.search_details.map(|details| SearchDetails {

@@ -104,7 +104,7 @@ impl From<(Region, String)> for MoveLambdaClient {
 #[async_trait]
 impl MoveChooser for MoveLambdaClient {
     async fn choose(
-        &mut self,
+        &self,
         moves_played: &str,
         remaining: Duration,
         increment: Duration,
