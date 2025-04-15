@@ -7,7 +7,7 @@ use std::time::Duration;
 #[async_trait]
 pub trait MoveChooser {
     async fn choose(
-        &mut self,
+        &self,
         moves_played: &str,
         remaining: Duration,
         increment: Duration,
@@ -17,14 +17,14 @@ pub trait MoveChooser {
 #[async_trait]
 impl MoveChooser for Engine {
     async fn choose(
-        &mut self,
+        &self,
         moves_played: &str,
         remaining: Duration,
         increment: Duration,
     ) -> Result<Move> {
         let position = moves_played.parse()?;
         tokio::task::block_in_place(|| {
-            self.compute_move(ComputeMoveInput { position, remaining, increment }).recv().unwrap()
+            self.compute_move(ComputeMoveInput { position, remaining, increment })
         })
         .map(|output| {
             match output.search_details {

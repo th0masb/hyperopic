@@ -1,4 +1,3 @@
-use std::sync::{mpsc, Arc};
 use crate::moves::Move;
 use crate::node::TreeNode;
 use crate::position::Position;
@@ -6,6 +5,7 @@ use crate::search::{SearchOutcome, SearchParameters, TranspositionsImpl};
 use crate::timing::TimeAllocator;
 use anyhow::Result;
 pub use board::union_boards;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use threadpool::ThreadPool;
 
@@ -119,7 +119,10 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new(table_size: usize, lookups: Vec<Arc<dyn LookupMoveService + Send + Sync>>) -> Engine {
+    pub fn new(
+        table_size: usize,
+        lookups: Vec<Arc<dyn LookupMoveService + Send + Sync>>,
+    ) -> Engine {
         Engine {
             transpositions: Arc::new(TranspositionsImpl::new(table_size)),
             lookups,
@@ -128,8 +131,16 @@ impl Engine {
         }
     }
 
-    pub fn compute_move(&self, input: ComputeMoveInput) -> mpsc::Receiver<Result<ComputeMoveOutput>> {
-        let (tx, rx) = mpsc::channel();
+    pub fn compute_move(&self, input: ComputeMoveInput) -> Result<ComputeMoveOutput> {
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.compute_move_async(input, move |r| tx.send(r).unwrap());
+        rx.recv()?
+    }
+
+    pub fn compute_move_async<F>(&self, input: ComputeMoveInput, on_complete: F)
+    where
+        F: FnOnce(Result<ComputeMoveOutput>) -> () + Send + 'static,
+    {
         let start = Instant::now();
         let lookups = self.lookups.clone();
         let transpositions = self.transpositions.clone();
@@ -137,29 +148,26 @@ impl Engine {
         self.threads.execute(move || {
             let node: TreeNode = input.position.into();
             let position_count = node.position().history.len();
-            let search_end = timing.allocate(position_count, input.remaining - start.elapsed(), input.increment);
-            tx.send(match perform_lookups(lookups, node.position().clone()) {
+            let search_end =
+                timing.allocate(position_count, input.remaining - start.elapsed(), input.increment);
+            on_complete(match perform_lookups(lookups, node.position().clone()) {
                 Some(mv) => Ok(ComputeMoveOutput { best_move: mv, search_details: None }),
                 None => {
-                    search::search(
-                        node,
-                        SearchParameters {
-                            table: transpositions,
-                            end: search_end,
-                        },
-                    )
-                        .map(|outcome| ComputeMoveOutput {
-                            best_move: outcome.best_move.clone(),
-                            search_details: Some(outcome),
-                        })
+                    let params = SearchParameters { table: transpositions, end: search_end };
+                    search::search(node, params).map(|outcome| ComputeMoveOutput {
+                        best_move: outcome.best_move.clone(),
+                        search_details: Some(outcome),
+                    })
                 }
-            }).expect("Unable to send result");
+            });
         });
-        rx
     }
 }
 
-fn perform_lookups(lookups: Vec<Arc<dyn LookupMoveService + Send + Sync>>, position: Position) -> Option<Move> {
+fn perform_lookups(
+    lookups: Vec<Arc<dyn LookupMoveService + Send + Sync>>,
+    position: Position,
+) -> Option<Move> {
     for service in lookups.iter() {
         if let Ok(Some(m)) = service.lookup(position.clone()) {
             return Some(m);

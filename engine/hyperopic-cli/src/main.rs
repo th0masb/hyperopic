@@ -1,9 +1,15 @@
+mod openings;
+
 use std::time::Duration;
+use hyperopic::Engine;
 
 fn main() {
     // We need one thread polling stdin, parsing command and writing to channel for processing
     // One coordinator thread processing the commands and writing output
     // All other threads assigned to engine computation
+
+    //let engine = Engine::new()
+
     for input_line in std::io::stdin().lines() {
         match input_line {
             Ok(line) => match line.as_str() {
