@@ -9,7 +9,6 @@ pub mod tables;
 pub use castling::CastlingFacet;
 pub use development::DevelopmentFacet;
 pub use knightrim::KnightRimFacet;
-pub use material::{MaterialFacet, PieceValues};
 pub use pawns::PawnStructureFacet;
 pub use safety::SafetyFacet;
-pub use tables::{PieceSquareTablesFacet, PositionTables};
+pub use tables::PieceSquareTablesFacet;

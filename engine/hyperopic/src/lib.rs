@@ -19,6 +19,7 @@ mod parse;
 mod phase;
 pub mod position;
 pub mod search;
+pub mod openings;
 mod see;
 #[cfg(test)]
 mod test;
