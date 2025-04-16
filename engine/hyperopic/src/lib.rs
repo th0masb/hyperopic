@@ -1,7 +1,7 @@
 use crate::moves::Move;
 use crate::node::TreeNode;
 use crate::position::Position;
-use crate::search::{SearchOutcome, SearchParameters, TranspositionsImpl};
+use crate::search::{SearchOutcome, SearchParameters, Transpositions, TranspositionsImpl};
 use crate::timing::TimeAllocator;
 use anyhow::Result;
 pub use board::union_boards;
@@ -117,6 +117,7 @@ pub struct Engine {
     lookups: Vec<Arc<dyn LookupMoveService + Send + Sync>>,
     timing: TimeAllocator,
     threads: ThreadPool,
+    // Add lock for preventing double search or search and reset
 }
 
 impl Engine {
@@ -130,6 +131,13 @@ impl Engine {
             timing: TimeAllocator::default(),
             threads: ThreadPool::new(1),
         }
+    }
+
+    pub fn reset(&self) {
+        // Ensure thinking has stopped
+        self.threads.join();
+        // Clear the transposition table
+        self.transpositions.reset();
     }
 
     pub fn compute_move(&self, input: ComputeMoveInput) -> Result<ComputeMoveOutput> {

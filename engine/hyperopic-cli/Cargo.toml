@@ -4,5 +4,6 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
-clap = "4.5.36"
+clap = { version = "4.5.36", features = ["derive"] }
+anyhow = "1.0.71"
 hyperopic = {path = "../hyperopic"}

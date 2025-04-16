@@ -970,6 +970,7 @@ dependencies = [
 name = "hyperopic-cli"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
  "clap 4.5.36",
  "hyperopic",
 ]
