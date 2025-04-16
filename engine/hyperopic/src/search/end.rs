@@ -1,3 +1,5 @@
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use crate::search::search::Context;
@@ -26,5 +28,11 @@ impl SearchEnd for usize {
 impl SearchEnd for (Duration, usize) {
     fn should_end(&self, ctx: &Context) -> bool {
         self.0.should_end(ctx) || self.1.should_end(ctx)
+    }
+}
+
+impl SearchEnd for (Duration, Arc<AtomicBool>) {
+    fn should_end(&self, ctx: &Context) -> bool {
+        self.0.should_end(ctx) || self.1.load(Ordering::Acquire)
     }
 }

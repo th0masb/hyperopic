@@ -65,6 +65,7 @@ impl DebugTranspositions {
 }
 
 impl Transpositions for DebugTranspositions {
+
     fn get(&self, pos: &Position) -> Option<Arc<TableEntry>> {
         let index = (pos.key % self.store.len() as u64) as usize;
         if let Some((existing, n)) = self.store[index].as_ref() {
@@ -95,6 +96,10 @@ impl Transpositions for DebugTranspositions {
         let entry = TableEntry { key: pos.key, root_index, depth, eval, node_type };
         //self.store[index] = Some((to_table_id(&pos), entry))
         panic!("Do me")
+    }
+
+    fn reset(&self) {
+        todo!()
     }
 }
 
