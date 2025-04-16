@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 pub trait Transpositions {
     fn get(&self, pos: &Position) -> Option<Arc<TableEntry>>;
     fn put(&self, pos: &Position, root_index: u16, depth: u8, eval: i32, node_type: NodeType);
+    fn reset(&self);
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -44,6 +45,10 @@ impl Transpositions for TranspositionsImpl {
             }
         }
         *curr = Some(Arc::new(TableEntry { root_index, depth, eval, key: pos.key, node_type }));
+    }
+
+    fn reset(&self) {
+        todo!()
     }
 }
 
