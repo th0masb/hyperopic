@@ -48,7 +48,10 @@ impl Transpositions for TranspositionsImpl {
     }
 
     fn reset(&self) {
-        todo!()
+        for row in self.inner.iter() {
+            let mut p = row.lock().unwrap();
+            *p = None;
+        }
     }
 }
 

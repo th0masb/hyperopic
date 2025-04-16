@@ -3,9 +3,11 @@ use crate::node::TreeNode;
 use crate::position::Position;
 use crate::search::{SearchOutcome, SearchParameters, Transpositions, TranspositionsImpl};
 use crate::timing::TimeAllocator;
-use anyhow::Result;
+use Ordering::SeqCst;
+use anyhow::{Result, anyhow};
 pub use board::union_boards;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use threadpool::ThreadPool;
 
@@ -15,11 +17,11 @@ mod format;
 mod hash;
 pub mod moves;
 pub mod node;
+pub mod openings;
 mod parse;
 mod phase;
 pub mod position;
 pub mod search;
-pub mod openings;
 mod see;
 #[cfg(test)]
 mod test;
@@ -99,11 +101,12 @@ pub trait LookupMoveService {
     fn lookup(&self, position: Position) -> Result<Option<Move>>;
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct ComputeMoveInput {
     pub position: Position,
     pub remaining: Duration,
     pub increment: Duration,
+    pub stop_flag: Option<Arc<AtomicBool>>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -117,7 +120,8 @@ pub struct Engine {
     lookups: Vec<Arc<dyn LookupMoveService + Send + Sync>>,
     timing: TimeAllocator,
     threads: ThreadPool,
-    // Add lock for preventing double search or search and reset
+    /// Flag ensuring at most one operation runs at any time
+    available: Arc<AtomicBool>,
 }
 
 impl Engine {
@@ -130,46 +134,70 @@ impl Engine {
             lookups,
             timing: TimeAllocator::default(),
             threads: ThreadPool::new(1),
+            available: Arc::new(AtomicBool::new(true)),
         }
     }
 
-    pub fn reset(&self) {
-        // Ensure thinking has stopped
-        self.threads.join();
-        // Clear the transposition table
-        self.transpositions.reset();
+    pub fn reset(&self) -> bool {
+        if self.available.compare_exchange(true, false, SeqCst, SeqCst).is_ok() {
+            self.transpositions.reset();
+            self.available.store(true, SeqCst);
+            true
+        } else {
+            false
+        }
     }
 
     pub fn compute_move(&self, input: ComputeMoveInput) -> Result<ComputeMoveOutput> {
         let (tx, rx) = std::sync::mpsc::channel();
-        self.compute_move_async(input, move |r| tx.send(r).unwrap());
-        rx.recv()?
+        if self.compute_move_async(input, move |r| tx.send(r).unwrap()) {
+            rx.recv()?
+        } else {
+            Err(anyhow!("Engine unavailable, operation already running"))
+        }
     }
 
-    pub fn compute_move_async<F>(&self, input: ComputeMoveInput, on_complete: F)
+    pub fn compute_move_async<F>(&self, input: ComputeMoveInput, on_complete: F) -> bool
     where
         F: FnOnce(Result<ComputeMoveOutput>) -> () + Send + 'static,
     {
+        if self.available.compare_exchange(true, false, SeqCst, SeqCst).is_err() {
+            return false;
+        }
         let start = Instant::now();
         let lookups = self.lookups.clone();
         let transpositions = self.transpositions.clone();
         let timing = self.timing.clone();
+        let available = self.available.clone();
         self.threads.execute(move || {
             let node: TreeNode = input.position.into();
             let position_count = node.position().history.len();
-            let search_end =
+            let search_duration =
                 timing.allocate(position_count, input.remaining - start.elapsed(), input.increment);
             on_complete(match perform_lookups(lookups, node.position().clone()) {
                 Some(mv) => Ok(ComputeMoveOutput { best_move: mv, search_details: None }),
-                None => {
-                    let params = SearchParameters { table: transpositions, end: search_end };
-                    search::search(node, params).map(|outcome| ComputeMoveOutput {
-                        best_move: outcome.best_move.clone(),
-                        search_details: Some(outcome),
-                    })
+                None => match input.stop_flag.as_ref() {
+                    Some(flag) => search::search(
+                        node,
+                        SearchParameters {
+                            table: transpositions,
+                            end: (search_duration, flag.clone()),
+                        },
+                    ),
+                    None => search::search(
+                        node,
+                        SearchParameters { table: transpositions, end: search_duration },
+                    ),
                 }
+                .map(|outcome| ComputeMoveOutput {
+                    best_move: outcome.best_move.clone(),
+                    search_details: Some(outcome),
+                }),
             });
+            // Make sure the engine is available again
+            available.store(true, SeqCst);
         });
+        true
     }
 }
 

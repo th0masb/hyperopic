@@ -1,12 +1,13 @@
 use std::str::FromStr;
 use std::time::Duration;
+use hyperopic::position::Position;
 use crate::EngineOpt;
 
 // See https://gist.github.com/DOBRO/2592c6dad754ba67e6dcaec8c90165bf for a description of
 // the UCI interface.
 #[derive(Debug, Clone)]
 pub enum Command {
-    Start,
+    Uci,
     IsReady,
     NewGame,
     Ponder,
@@ -15,7 +16,7 @@ pub enum Command {
     Quit,
     Debug(bool),
     SetOption(EngineOpt),
-    Position(String),
+    Position(Position),
     Search { w_time: Duration, w_inc: Duration, b_time: Duration, b_inc: Duration },
 }
 
