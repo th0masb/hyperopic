@@ -6,6 +6,7 @@ use crate::timing::TimeAllocator;
 use Ordering::SeqCst;
 use anyhow::{Result, anyhow};
 pub use board::union_boards;
+use std::cmp::{max, min};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -106,6 +107,7 @@ pub struct ComputeMoveInput {
     pub position: Position,
     pub remaining: Duration,
     pub increment: Duration,
+    pub max_time: Option<Duration>,
     pub stop_flag: Option<Arc<AtomicBool>>,
 }
 
@@ -169,11 +171,14 @@ impl Engine {
         let transpositions = self.transpositions.clone();
         let timing = self.timing.clone();
         let available = self.available.clone();
+        let max_time = input.max_time.unwrap_or(Duration::MAX);
         self.threads.execute(move || {
             let node: TreeNode = input.position.into();
             let position_count = node.position().history.len();
-            let search_duration =
-                timing.allocate(position_count, input.remaining - start.elapsed(), input.increment);
+            let search_duration = min(
+                max_time,
+                timing.allocate(position_count, input.remaining - start.elapsed(), input.increment),
+            );
             on_complete(match perform_lookups(lookups, node.position().clone()) {
                 Some(mv) => Ok(ComputeMoveOutput { best_move: mv, search_details: None }),
                 None => match input.stop_flag.as_ref() {

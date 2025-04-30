@@ -4,6 +4,7 @@ use crate::position::Position;
 use anyhow::{Error, Result, anyhow};
 use itertools::Itertools;
 use std::str::FromStr;
+use log::info;
 
 const MOVE_FREQ_SEPARATOR: &'static str = ":";
 
@@ -14,30 +15,38 @@ pub struct OpeningMoveRecord {
 }
 
 pub trait OpeningMoveFetcher {
-    fn lookup(&self, position: &Position) -> Result<Vec<OpeningMoveRecord>>;
+    fn lookup(&self, position_key: &str) -> Result<Vec<OpeningMoveRecord>>;
 }
 
 pub struct OpeningService<F: OpeningMoveFetcher> {
-    fetcher: F,
+    pub fetcher: F,
+    pub max_depth: usize,
 }
 
 impl <F: OpeningMoveFetcher> OpeningService<F> {
     pub fn new(fetcher: F) -> Self {
-        OpeningService { fetcher }
+        OpeningService { fetcher , max_depth: 10 }
     }
 }
 
 impl<F: OpeningMoveFetcher> LookupMoveService for OpeningService<F> {
     fn lookup(&self, position: Position) -> Result<Option<Move>> {
-        let options = self.fetcher.lookup(&position)?;
-        if options.len() == 0 {
-            return Ok(None);
+        let pos_count = position.history.len();
+        if pos_count > self.max_depth {
+            Ok(None)
+        } else {
+            // The table index comprises, the pieces, active square, castling rights
+            let key = position.to_string().split_whitespace().take(3).join(" ");
+            let options = self.fetcher.lookup(&key)?;
+            if options.len() == 0 {
+                return Ok(None);
+            }
+            let chosen_move = choose_move(&options, rand::random)?;
+            let parsed = position.clone().play(chosen_move.mv)?;
+            let m =
+                parsed.first().cloned().ok_or(anyhow!("{:?} not parsed on {}", options, position))?;
+            Ok(Some(m))
         }
-        let chosen_move = choose_move(&options, rand::random)?;
-        let parsed = position.clone().play(chosen_move.mv)?;
-        let m =
-            parsed.first().cloned().ok_or(anyhow!("{:?} not parsed on {}", options, position))?;
-        Ok(Some(m))
     }
 }
 
