@@ -973,6 +973,8 @@ dependencies = [
  "anyhow",
  "clap 4.5.36",
  "hyperopic",
+ "lazy_static",
+ "regex",
 ]
 
 [[package]]

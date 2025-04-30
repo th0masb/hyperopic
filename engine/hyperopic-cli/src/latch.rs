@@ -23,18 +23,7 @@ impl CountDownLatch {
         // single send on channel
         self.tx.send(()).unwrap();
     }
-    /// Get the current count
-    pub fn get_count(&self) -> usize {
-        // try to drain channel
-        let lock = self.rx.try_lock();
-        if let Ok(rx) = lock {
-            while self.remaining.load(Ordering::SeqCst) > 0 && rx.try_recv().is_ok() {
-                self.remaining.fetch_sub(1, Ordering::SeqCst);
-            }
-        }
-        // return remaining count
-        return self.remaining.load(Ordering::SeqCst);
-    }
+    
     /// Block until the count reaches 0
     pub fn join(&self) {
         // get lock, indefinite wait

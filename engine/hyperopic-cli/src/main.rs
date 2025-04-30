@@ -1,19 +1,24 @@
 mod command;
-mod openings;
 mod latch;
+mod openings;
 
 use crate::command::Command;
+use crate::openings::OpeningsDatabase;
 use crate::state::{IDLE, SEARCHING, STOPPING};
 use anyhow::anyhow;
+use anyhow::Result;
 use clap::Parser;
 use hyperopic::constants::side;
+use hyperopic::openings::OpeningService;
 use hyperopic::position::Position;
-use hyperopic::{ComputeMoveInput, Engine};
+use hyperopic::{ComputeMoveInput, Engine, LookupMoveService};
 use latch::CountDownLatch;
 use state::PONDERING;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicBool, AtomicU8};
 use std::sync::Arc;
+use std::time::Duration;
+use hyperopic::moves::Move;
 
 const DEFAULT_TABLE_SIZE: usize = 1_000_000;
 
@@ -22,12 +27,14 @@ struct Args {
     /// Path to the openings database file to use
     #[clap(long, default_value = None)]
     openings_db: Option<String>,
+    #[clap(long, default_value = "10")]
+    max_openings_depth: usize,
     /// Table row capacity for the transposition table
     #[clap(long, default_value = None)]
     table_size: Option<usize>,
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<()> {
     Hyperopic::new(Args::parse()).run()
 }
 
@@ -44,17 +51,29 @@ struct Hyperopic {
     search_control: Option<Arc<SearchControl>>,
     state: Arc<AtomicU8>,
     position: Position,
+    ponder_move: Option<Move>
 }
 
 impl Hyperopic {
     pub fn new(args: Args) -> Self {
-        let table_size = args.table_size.unwrap_or(DEFAULT_TABLE_SIZE);
-        let lookups = vec![];
+        let mut lookups: Vec<Arc<dyn LookupMoveService + Send + Sync>> = vec![];
+        if let Some(openings_db) = args.openings_db {
+            match OpeningsDatabase::new(std::path::PathBuf::from(openings_db.clone())) {
+                Err(err) => {
+                    eprintln!("Could not open Openings database at {}: {}", openings_db, err)
+                }
+                Ok(db) => lookups.push(Arc::new(OpeningService {
+                    fetcher: db,
+                    max_depth: args.max_openings_depth,
+                })),
+            }
+        }
         Hyperopic {
             search_control: None,
-            engine: Engine::new(table_size, lookups),
+            engine: Engine::new(args.table_size.unwrap_or(DEFAULT_TABLE_SIZE), lookups),
             state: Arc::new(AtomicU8::new(IDLE)),
             position: Position::default(),
+            ponder_move: None
         }
     }
 
@@ -65,7 +84,7 @@ impl Hyperopic {
                     return Err(anyhow!("Error reading stdin {}", e));
                 }
                 Ok(line) => match line.as_str().parse::<Command>() {
-                    Err(e) => eprintln!("Error parsing command \"{}\": {}", line, e),
+                    Err(e) => eprintln!("Error parsing \"{}\": {}", line, e),
                     Ok(command) => {
                         let curr_state = self.state.load(SeqCst);
                         match command {
@@ -83,10 +102,10 @@ impl Hyperopic {
                                         let control = self.search_control.as_ref().unwrap();
                                         control.stop_search.store(true, SeqCst);
                                         control.wait_search.join();
-                                    },
-                                    _ => {},
+                                    }
+                                    _ => {}
                                 }
-                                break
+                                break;
                             }
                             Command::NewGame => {
                                 if curr_state == IDLE {
@@ -95,9 +114,7 @@ impl Hyperopic {
                             }
                             Command::Ponder => {}
                             Command::PonderHit => {}
-                            Command::Position(position) => {
-                                self.position = position
-                            },
+                            Command::Position(position) => self.position = position,
                             Command::Stop => {
                                 if curr_state == SEARCHING || curr_state == PONDERING {
                                     self.state.store(STOPPING, SeqCst);
@@ -106,7 +123,7 @@ impl Hyperopic {
                                     }
                                 }
                             }
-                            Command::Search { w_time, w_inc, b_time, b_inc } => {
+                            Command::Search { w_time, w_inc, b_time, b_inc, move_time } => {
                                 if curr_state == IDLE {
                                     let state_holder = self.state.clone();
                                     state_holder.store(SEARCHING, SeqCst);
@@ -116,14 +133,33 @@ impl Hyperopic {
                                     self.engine.compute_move_async(
                                         ComputeMoveInput {
                                             position: self.position.clone(),
-                                            remaining: if is_white { w_time } else { b_time },
-                                            increment: if is_white { w_inc } else { b_inc },
-                                            stop_flag: Some(next_search_control.stop_search.clone())
+                                            remaining: if is_white { w_time } else { b_time }
+                                                .unwrap_or(Duration::from_millis(5000)),
+                                            increment: if is_white { w_inc } else { b_inc }
+                                                .unwrap_or(Duration::ZERO),
+                                            max_time: move_time,
+                                            stop_flag: Some(
+                                                next_search_control.stop_search.clone(),
+                                            ),
                                         },
                                         move |result| {
                                             next_search_control.wait_search.count_down();
                                             state_holder.store(IDLE, SeqCst);
-                                            // Print output
+                                            match result {
+                                                Err(e) => {
+                                                    eprintln!("Error computing move: {}", e);
+                                                    // Quit with error
+                                                }
+                                                Ok(output) => {
+                                                    //if let Some(ponder_move) = output.search_details.and_then(|details| details.optimal_path.get(1).cloned()) {
+                                                    //    println!("")
+                                                    //    
+                                                    //} else {
+                                                    //    println!("bestmove {}", output.best_move);
+                                                    //}
+                                                    println!("bestmove {}", output.best_move);
+                                                }
+                                            }
                                         },
                                     );
                                 }
@@ -151,12 +187,5 @@ impl SearchControl {
     }
 }
 
-// #[derive(Debug, Clone)]
-// enum EngineState {
-//     Idle,
-//     Pondering,
-//     Searching,
-// }
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 enum EngineOpt {}

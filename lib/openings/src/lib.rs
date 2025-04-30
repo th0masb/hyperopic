@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use anyhow::{Error, Result, anyhow};
+use hyperopic::openings::{OpeningMoveFetcher, OpeningMoveRecord};
 use hyperopic::position::Position;
 use itertools::Itertools;
 use log::info;
 use rusoto_core::Region;
 use rusoto_dynamodb::{AttributeValue, DynamoDb, DynamoDbClient, GetItemInput};
 use serde_derive::{Deserialize, Serialize};
-use hyperopic::openings::{OpeningMoveFetcher, OpeningMoveRecord};
 
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub struct OpeningTable {
@@ -37,28 +37,21 @@ impl TryFrom<OpeningTable> for DynamoOpeningClient {
 }
 
 impl OpeningMoveFetcher for DynamoOpeningClient {
-    fn lookup(&self, position: &Position) -> Result<Vec<OpeningMoveRecord>> {
+    fn lookup(&self, position_key: &str) -> Result<Vec<OpeningMoveRecord>> {
         futures::executor::block_on(async {
-            let pos_count = position.history.len();
-            if pos_count > self.params.max_depth as usize {
-                info!("No lookup as {} > {}", pos_count, self.params.max_depth);
-                Ok(vec![])
-            } else {
-                // The table index comprises, the pieces, active square, castling rights
-                let index = position.to_string().split_whitespace().take(3).join(" ");
-                info!("Querying table {} for position {}", self.params.name, index);
-                self.client
-                    .get_item(self.create_request(index))
-                    .await
-                    .map_err(|err| anyhow!("{}", err))
-                    .and_then(|response| match response.item {
-                        None => {
-                            info!("No match found!");
-                            Ok(vec![])
-                        }
-                        Some(attributes) => self.try_extract_move(attributes)
-                    })
-            }
+            let index = position_key.to_string().split_whitespace().take(3).join(" ");
+            info!("Querying table {} for position {}", self.params.name, index);
+            self.client
+                .get_item(self.create_request(index))
+                .await
+                .map_err(|err| anyhow!("{}", err))
+                .and_then(|response| match response.item {
+                    None => {
+                        info!("No match found!");
+                        Ok(vec![])
+                    }
+                    Some(attributes) => self.try_extract_move(attributes),
+                })
         })
     }
 }
@@ -76,7 +69,10 @@ impl DynamoOpeningClient {
         request
     }
 
-    fn try_extract_move(&self, attributes: HashMap<String, AttributeValue>) -> Result<Vec<OpeningMoveRecord>> {
+    fn try_extract_move(
+        &self,
+        attributes: HashMap<String, AttributeValue>,
+    ) -> Result<Vec<OpeningMoveRecord>> {
         match attributes.get(&self.params.move_key) {
             None => Err(anyhow!("Position exists but missing recommended move attribute")),
             Some(attribute) => match &attribute.ss {
@@ -85,7 +81,8 @@ impl DynamoOpeningClient {
                 )),
                 Some(move_set) => {
                     info!("Found matching set {:?}!", move_set);
-                    Ok(move_set.iter()
+                    Ok(move_set
+                        .iter()
                         .filter_map(|m| OpeningMoveRecord::from_str(m).ok())
                         .collect::<Vec<OpeningMoveRecord>>())
                 }
