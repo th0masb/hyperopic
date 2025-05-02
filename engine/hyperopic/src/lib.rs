@@ -214,9 +214,9 @@ impl Engine {
                 // and an infinite search has been requested.
                 search_end.join();
             }
-            on_complete(output);
             // Make sure the engine is available again
             available.store(true, SeqCst);
+            on_complete(output);
         });
         true
     }
