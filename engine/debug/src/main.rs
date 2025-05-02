@@ -6,6 +6,7 @@ use hyperopic::moves::Moves;
 use hyperopic::node::TreeNode;
 use hyperopic::position::Position;
 use hyperopic::search::{NodeType, SearchParameters, TableEntry, Transpositions};
+use hyperopic::search::end::EmptyEndSignal;
 
 #[derive(Parser)]
 struct Cli {
@@ -114,7 +115,7 @@ fn run_search(mut state: TreeNode, depth: usize, table_size: usize) {
     } else {
         let outcome = hyperopic::search::search(
             state,
-            SearchParameters { end: depth, table: Arc::new(DebugTranspositions::new(table_size)) },
+            SearchParameters { end_signal: EmptyEndSignal, table: Arc::new(DebugTranspositions::new(table_size)), max_depth: Some(depth as u8) },
         );
         println!("{}", serde_json::to_string_pretty(&outcome.unwrap()).unwrap());
     }

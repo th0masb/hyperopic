@@ -7,7 +7,7 @@ use hyperopic::search::{SearchParameters, TranspositionsImpl};
 use itertools::Itertools;
 use lambda_runtime::{Context, Error, LambdaEvent, service_fn};
 use simple_logger::SimpleLogger;
-
+use hyperopic::search::end::EmptyEndSignal;
 use lambda_payloads::benchmark::*;
 
 mod positions;
@@ -52,7 +52,7 @@ async fn handler(event: LambdaEvent<BenchStartEvent>) -> Result<BenchOutput, Err
         }
         let search_result = hyperopic::search::search(
             position.into(),
-            SearchParameters { end: e.depth, table: Arc::new(TranspositionsImpl::new(e.table_size)) },
+            SearchParameters { end_signal: EmptyEndSignal, table: Arc::new(TranspositionsImpl::new(e.table_size)), max_depth: Some(e.depth as u8) },
         )?;
         search_result.best_move.hash(&mut hasher);
         moves.push(search_result);

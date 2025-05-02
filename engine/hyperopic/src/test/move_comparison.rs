@@ -1,6 +1,7 @@
-use std::sync::Arc;
 use crate::position::Position;
+use crate::search::end::EmptyEndSignal;
 use crate::search::{SearchOutcome, SearchParameters, TranspositionsImpl};
+use std::sync::Arc;
 
 #[test]
 fn sanity_case() {
@@ -72,7 +73,11 @@ fn search_after_move(pgn: &str, mv: &str, depth: usize) -> SearchOutcome {
     board.play(mv).expect(format!("{} invalid on {}", mv, board).as_str());
     crate::search::search(
         board.into(),
-        SearchParameters { end: depth, table: Arc::new(TranspositionsImpl::new(TABLE_SIZE)) },
+        SearchParameters {
+            end_signal: EmptyEndSignal,
+            table: Arc::new(TranspositionsImpl::new(TABLE_SIZE)),
+            max_depth: Some(depth as u8),
+        },
     )
     .map_err(|e| panic!("Could not search at {}: {}", pgn, e))
     .unwrap()

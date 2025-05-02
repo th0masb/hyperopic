@@ -1,12 +1,12 @@
 use crate::moves::Move;
 use crate::node::TreeNode;
 use crate::position::Position;
+use crate::search::end::SearchEndSignal;
 use crate::search::{SearchOutcome, SearchParameters, Transpositions, TranspositionsImpl};
 use crate::timing::TimeAllocator;
 use Ordering::SeqCst;
 use anyhow::{Result, anyhow};
 pub use board::union_boards;
-use std::cmp::{max, min};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -26,7 +26,7 @@ pub mod search;
 mod see;
 #[cfg(test)]
 mod test;
-mod timing;
+pub mod timing;
 #[rustfmt::skip]
 pub mod constants;
 #[cfg(test)]
@@ -103,12 +103,30 @@ pub trait LookupMoveService {
 }
 
 #[derive(Debug, Clone)]
-pub struct ComputeMoveInput {
+pub struct ComputeMoveInput<E: SearchEndSignal + Clone> {
+    /// The root position we want to search
     pub position: Position,
-    pub remaining: Duration,
-    pub increment: Duration,
-    pub max_time: Option<Duration>,
-    pub stop_flag: Option<Arc<AtomicBool>>,
+    /// The end signal for stopping the search
+    pub search_end: E,
+    /// The max depth on the search
+    pub max_depth: Option<u8>,
+    /// Flag which when set disables early return, i.e. in the case
+    /// of a forced checkmate we wait for the end signal instead of
+    /// returning the result immediately
+    pub wait_for_end: bool
+}
+
+impl ComputeMoveInput<Instant> {
+    pub fn new(position: Position, remaining: Duration, inc: Duration) -> Self {
+        let timing = TimeAllocator::default();
+        let position_count = position.history.len();
+        ComputeMoveInput {
+            position,
+            search_end: Instant::now() + timing.allocate(position_count, remaining, inc),
+            max_depth: None,
+            wait_for_end: false
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -120,7 +138,6 @@ pub struct ComputeMoveOutput {
 pub struct Engine {
     transpositions: Arc<TranspositionsImpl>,
     lookups: Vec<Arc<dyn LookupMoveService + Send + Sync>>,
-    timing: TimeAllocator,
     threads: ThreadPool,
     /// Flag ensuring at most one operation runs at any time
     available: Arc<AtomicBool>,
@@ -134,7 +151,6 @@ impl Engine {
         Engine {
             transpositions: Arc::new(TranspositionsImpl::new(table_size)),
             lookups,
-            timing: TimeAllocator::default(),
             threads: ThreadPool::new(1),
             available: Arc::new(AtomicBool::new(true)),
         }
@@ -150,7 +166,10 @@ impl Engine {
         }
     }
 
-    pub fn compute_move(&self, input: ComputeMoveInput) -> Result<ComputeMoveOutput> {
+    pub fn compute_move<E>(&self, input: ComputeMoveInput<E>) -> Result<ComputeMoveOutput>
+    where
+        E: SearchEndSignal + Clone + Send + 'static,
+    {
         let (tx, rx) = std::sync::mpsc::channel();
         if self.compute_move_async(input, move |r| tx.send(r).unwrap()) {
             rx.recv()?
@@ -159,46 +178,39 @@ impl Engine {
         }
     }
 
-    pub fn compute_move_async<F>(&self, input: ComputeMoveInput, on_complete: F) -> bool
+    pub fn compute_move_async<E, F>(&self, input: ComputeMoveInput<E>, on_complete: F) -> bool
     where
+        E: SearchEndSignal + Clone + Send + 'static,
         F: FnOnce(Result<ComputeMoveOutput>) -> () + Send + 'static,
     {
         if self.available.compare_exchange(true, false, SeqCst, SeqCst).is_err() {
             return false;
         }
-        let start = Instant::now();
         let lookups = self.lookups.clone();
         let transpositions = self.transpositions.clone();
-        let timing = self.timing.clone();
         let available = self.available.clone();
-        let max_time = input.max_time.unwrap_or(Duration::MAX);
+        let search_end = input.search_end.clone();
+        let max_depth = input.max_depth;
+        let wait_for_end = input.wait_for_end;
         self.threads.execute(move || {
             let node: TreeNode = input.position.into();
-            let position_count = node.position().history.len();
-            let search_duration = min(
-                max_time,
-                timing.allocate(position_count, input.remaining - start.elapsed(), input.increment),
-            );
-            on_complete(match perform_lookups(lookups, node.position().clone()) {
+            let output = match perform_lookups(lookups, node.position().clone()) {
                 Some(mv) => Ok(ComputeMoveOutput { best_move: mv, search_details: None }),
-                None => match input.stop_flag.as_ref() {
-                    Some(flag) => search::search(
-                        node,
-                        SearchParameters {
-                            table: transpositions,
-                            end: (search_duration, flag.clone()),
-                        },
-                    ),
-                    None => search::search(
-                        node,
-                        SearchParameters { table: transpositions, end: search_duration },
-                    ),
-                }
+                None => search::search(
+                    node,
+                    SearchParameters { table: transpositions, end_signal: search_end.clone(), max_depth },
+                )
                 .map(|outcome| ComputeMoveOutput {
                     best_move: outcome.best_move.clone(),
                     search_details: Some(outcome),
                 }),
-            });
+            };
+            if wait_for_end {
+                // Wait until the search is meant to end, i.e. in case we have forced ending
+                // and an infinite search has been requested.
+                search_end.join();
+            }
+            on_complete(output);
             // Make sure the engine is available again
             available.store(true, SeqCst);
         });

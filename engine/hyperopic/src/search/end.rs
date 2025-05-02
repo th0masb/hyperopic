@@ -1,38 +1,34 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
-
-use crate::search::search::Context;
+use std::cmp::max;
+use std::time::{Duration, Instant};
 
 /// Represents some object which can determine whether a search should be
 /// terminated given certain context about the current state. Implementations
 /// are provided for Duration (caps the search based on time elapsed), for
 /// usize which represents a maximum search depth and for a pair (Duration, usize)
 /// which combines both checks.
-pub trait SearchEnd {
-    fn should_end(&self, ctx: &Context) -> bool;
+pub trait SearchEndSignal {
+    fn should_end_now(&self) -> bool;
+    fn join(&self) -> ();
 }
 
-impl SearchEnd for Duration {
-    fn should_end(&self, ctx: &Context) -> bool {
-        ctx.start.elapsed() > *self
+impl SearchEndSignal for Instant {
+    fn should_end_now(&self) -> bool {
+        self <= &Instant::now()
+    }
+
+    fn join(&self) -> () {
+        std::thread::sleep(max(Duration::ZERO, *self - Instant::now()));
     }
 }
 
-impl SearchEnd for usize {
-    fn should_end(&self, ctx: &Context) -> bool {
-        ctx.depth as usize > *self
-    }
-}
+#[derive(Clone, Debug)]
+pub struct EmptyEndSignal;
 
-impl SearchEnd for (Duration, usize) {
-    fn should_end(&self, ctx: &Context) -> bool {
-        self.0.should_end(ctx) || self.1.should_end(ctx)
+impl SearchEndSignal for EmptyEndSignal {
+    fn should_end_now(&self) -> bool {
+        false
     }
-}
 
-impl SearchEnd for (Duration, Arc<AtomicBool>) {
-    fn should_end(&self, ctx: &Context) -> bool {
-        self.0.should_end(ctx) || self.1.load(Ordering::Acquire)
+    fn join(&self) -> () {
     }
 }

@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::Arc;
 use std::time::Instant;
-
+use crate::search::end::EmptyEndSignal;
 use crate::TranspositionsImpl;
 use crate::search::SearchParameters;
 
@@ -80,8 +80,9 @@ fn benchmark() -> Result<(), Box<dyn Error>> {
             println!("[Position {}, Duration {}ms]", i, start.elapsed().as_millis());
         }
         best_moves.push(crate::search::search(position.into(), SearchParameters {
-            end: depth,
+            end_signal: EmptyEndSignal,
             table: Arc::new(TranspositionsImpl::new(table_size)),
+            max_depth: Some(depth as u8),
         })?)
     }
     println!("Successfully computed {} moves at depth {} in {}ms", best_moves.len(), depth, start.elapsed().as_millis());

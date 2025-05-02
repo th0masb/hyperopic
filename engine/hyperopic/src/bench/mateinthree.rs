@@ -8,6 +8,7 @@ use regex::Regex;
 
 use crate::node::{TreeNode, WIN_VALUE};
 use crate::position::Position;
+use crate::search::end::EmptyEndSignal;
 use crate::search::{SearchParameters, search};
 use crate::{Move, TranspositionsImpl};
 
@@ -144,7 +145,8 @@ fn benchmark() {
             print_progress(case_count, err_count, search_duration.clone());
         }
         let board_fen = test_case.eval.position().to_string();
-        match search(test_case.eval, SearchParameters { end: depth, table: Arc::new(TranspositionsImpl::new(table_size)) }) {
+        let params = SearchParameters {end_signal: EmptyEndSignal, table: Arc::new(TranspositionsImpl::new(table_size)), max_depth: Some(depth as u8) };
+        match search(test_case.eval, params) {
             Err(message) => panic!("{}", message),
             Ok(outcome) => {
                 search_duration += outcome.time;
