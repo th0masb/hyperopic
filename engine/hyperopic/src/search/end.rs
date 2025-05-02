@@ -1,13 +1,11 @@
 use std::cmp::max;
 use std::time::{Duration, Instant};
 
-/// Represents some object which can determine whether a search should be
-/// terminated given certain context about the current state. Implementations
-/// are provided for Duration (caps the search based on time elapsed), for
-/// usize which represents a maximum search depth and for a pair (Duration, usize)
-/// which combines both checks.
+/// A type which can be used to stop a search gracefully at any time.
 pub trait SearchEndSignal {
+    /// The returned flag indicates to the search whether it should immediately stop
     fn should_end_now(&self) -> bool;
+    /// Blocks the calling thread until the stop condition is reached
     fn join(&self) -> ();
 }
 
@@ -29,6 +27,5 @@ impl SearchEndSignal for EmptyEndSignal {
         false
     }
 
-    fn join(&self) -> () {
-    }
+    fn join(&self) -> () {}
 }

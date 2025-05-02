@@ -1,9 +1,9 @@
+use anyhow::{Result, anyhow};
+use hyperopic::openings::{OpeningMoveFetcher, OpeningMoveRecord};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::str::FromStr;
-use hyperopic::openings::{OpeningMoveFetcher, OpeningMoveRecord};
-use anyhow::{anyhow, Result};
 
 pub struct OpeningsDatabase {
     contents: HashMap<String, Vec<OpeningMoveRecord>>,
@@ -20,7 +20,8 @@ impl OpeningsDatabase {
             let components = line.split(",").collect::<Vec<&str>>();
             let key = components.get(0).ok_or(anyhow!("Bad line in {}: {}", path_name, line))?;
             let value = components.get(1).ok_or(anyhow!("Bad line in {}: {}", path_name, line))?;
-            let records = value.split(";")
+            let records = value
+                .split(";")
                 .map(|s| OpeningMoveRecord::from_str(s))
                 .collect::<Result<Vec<_>>>()?;
             contents.insert(key.to_string(), records);

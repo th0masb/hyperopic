@@ -113,7 +113,7 @@ pub struct ComputeMoveInput<E: SearchEndSignal + Clone> {
     /// Flag which when set disables early return, i.e. in the case
     /// of a forced checkmate we wait for the end signal instead of
     /// returning the result immediately
-    pub wait_for_end: bool
+    pub wait_for_end: bool,
 }
 
 impl ComputeMoveInput<Instant> {
@@ -124,7 +124,7 @@ impl ComputeMoveInput<Instant> {
             position,
             search_end: Instant::now() + timing.allocate(position_count, remaining, inc),
             max_depth: None,
-            wait_for_end: false
+            wait_for_end: false,
         }
     }
 }
@@ -198,7 +198,11 @@ impl Engine {
                 Some(mv) => Ok(ComputeMoveOutput { best_move: mv, search_details: None }),
                 None => search::search(
                     node,
-                    SearchParameters { table: transpositions, end_signal: search_end.clone(), max_depth },
+                    SearchParameters {
+                        table: transpositions,
+                        end_signal: search_end.clone(),
+                        max_depth,
+                    },
                 )
                 .map(|outcome| ComputeMoveOutput {
                     best_move: outcome.best_move.clone(),
