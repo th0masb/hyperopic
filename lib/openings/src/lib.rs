@@ -3,7 +3,6 @@ use std::str::FromStr;
 
 use anyhow::{Error, Result, anyhow};
 use hyperopic::openings::{OpeningMoveFetcher, OpeningMoveRecord};
-use hyperopic::position::Position;
 use itertools::Itertools;
 use log::info;
 use rusoto_core::Region;

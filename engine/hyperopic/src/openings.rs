@@ -4,7 +4,6 @@ use crate::position::Position;
 use anyhow::{Error, Result, anyhow};
 use itertools::Itertools;
 use std::str::FromStr;
-use log::info;
 
 const MOVE_FREQ_SEPARATOR: &'static str = ":";
 
@@ -23,9 +22,9 @@ pub struct OpeningService<F: OpeningMoveFetcher> {
     pub max_depth: usize,
 }
 
-impl <F: OpeningMoveFetcher> OpeningService<F> {
+impl<F: OpeningMoveFetcher> OpeningService<F> {
     pub fn new(fetcher: F) -> Self {
-        OpeningService { fetcher , max_depth: 10 }
+        OpeningService { fetcher, max_depth: 10 }
     }
 }
 
@@ -43,8 +42,11 @@ impl<F: OpeningMoveFetcher> LookupMoveService for OpeningService<F> {
             }
             let chosen_move = choose_move(&options, rand::random)?;
             let parsed = position.clone().play(chosen_move.mv)?;
-            let m =
-                parsed.first().cloned().ok_or(anyhow!("{:?} not parsed on {}", options, position))?;
+            let m = parsed.first().cloned().ok_or(anyhow!(
+                "{:?} not parsed on {}",
+                options,
+                position
+            ))?;
             Ok(Some(m))
         }
     }

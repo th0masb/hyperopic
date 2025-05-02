@@ -5,8 +5,8 @@ mod openings;
 use crate::command::{Command, SearchParams};
 use crate::openings::OpeningsDatabase;
 use crate::state::{IDLE, SEARCHING, STOPPING};
-use anyhow::anyhow;
 use anyhow::Result;
+use anyhow::anyhow;
 use clap::Parser;
 use hyperopic::constants::side;
 use hyperopic::openings::OpeningService;
@@ -15,13 +15,13 @@ use hyperopic::search::end::SearchEndSignal;
 use hyperopic::timing::TimeAllocator;
 use hyperopic::{ComputeMoveInput, Engine, LookupMoveService};
 use latch::CountDownLatch;
-use state::PONDERING;
-use std::sync::atomic::Ordering::SeqCst;
-use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
 use log::{debug, error, info};
 use simple_logger::SimpleLogger;
+use state::PONDERING;
+use std::sync::Arc;
+use std::sync::atomic::Ordering::SeqCst;
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
+use std::time::{Duration, Instant};
 
 const DEFAULT_TABLE_SIZE: usize = 1_000_000;
 const ONE_YEAR_IN_SECS: u64 = 60 * 60 * 24 * 365;
@@ -152,7 +152,10 @@ impl Hyperopic {
                             Command::Search(params) => {
                                 if curr_state == IDLE {
                                     let state_holder = self.state.clone();
-                                    state_holder.store(if params.ponder { PONDERING } else { SEARCHING }, SeqCst);
+                                    state_holder.store(
+                                        if params.ponder { PONDERING } else { SEARCHING },
+                                        SeqCst,
+                                    );
                                     let next_search_control = Arc::new(SearchControl::default());
                                     self.search_control = Some(next_search_control.clone());
                                     let mut search_duration = self.compute_search_duration(&params);
@@ -210,12 +213,10 @@ impl Hyperopic {
             self.position.history.len(),
             if is_white { params.w_time } else { params.b_time }
                 .unwrap_or(Duration::from_millis(5000)),
-            if is_white { params.w_inc } else { params.b_inc }
-                .unwrap_or(Duration::ZERO),
+            if is_white { params.w_inc } else { params.b_inc }.unwrap_or(Duration::ZERO),
         )
     }
 }
-
 
 #[derive(Clone)]
 struct GoSearchEnd {
@@ -225,7 +226,8 @@ struct GoSearchEnd {
 
 impl SearchEndSignal for GoSearchEnd {
     fn should_end_now(&self) -> bool {
-        self.stop_instant.should_end_now() || self.stop_latch.get_current_count(Ordering::Relaxed) == 0
+        self.stop_instant.should_end_now()
+            || self.stop_latch.get_current_count(Ordering::Relaxed) == 0
     }
 
     fn join(&self) -> () {
@@ -237,7 +239,6 @@ struct SearchControl {
     stop_search: Arc<CountDownLatch>,
     search_end: Arc<AtomicU64>,
     wait_search: Arc<CountDownLatch>,
-    
 }
 
 impl Default for SearchControl {

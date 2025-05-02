@@ -1,12 +1,12 @@
+use crate::TranspositionsImpl;
 use crate::position::Position;
+use crate::search::SearchParameters;
+use crate::search::end::EmptyEndSignal;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::Arc;
 use std::time::Instant;
-use crate::search::end::EmptyEndSignal;
-use crate::TranspositionsImpl;
-use crate::search::SearchParameters;
 
 #[rustfmt::skip]
 /// Run on system76

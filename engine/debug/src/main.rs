@@ -1,12 +1,12 @@
-use std::sync::Arc;
 use clap::{Parser, Subcommand};
 use itertools::Itertools;
+use std::sync::Arc;
 
 use hyperopic::moves::Moves;
 use hyperopic::node::TreeNode;
 use hyperopic::position::Position;
-use hyperopic::search::{NodeType, SearchParameters, TableEntry, Transpositions};
 use hyperopic::search::end::EmptyEndSignal;
+use hyperopic::search::{NodeType, SearchParameters, TableEntry, Transpositions};
 
 #[derive(Parser)]
 struct Cli {
@@ -66,7 +66,6 @@ impl DebugTranspositions {
 }
 
 impl Transpositions for DebugTranspositions {
-
     fn get(&self, pos: &Position) -> Option<Arc<TableEntry>> {
         let index = (pos.key % self.store.len() as u64) as usize;
         if let Some((existing, n)) = self.store[index].as_ref() {
@@ -115,7 +114,11 @@ fn run_search(mut state: TreeNode, depth: usize, table_size: usize) {
     } else {
         let outcome = hyperopic::search::search(
             state,
-            SearchParameters { end_signal: EmptyEndSignal, table: Arc::new(DebugTranspositions::new(table_size)), max_depth: Some(depth as u8) },
+            SearchParameters {
+                end_signal: EmptyEndSignal,
+                table: Arc::new(DebugTranspositions::new(table_size)),
+                max_depth: Some(depth as u8),
+            },
         );
         println!("{}", serde_json::to_string_pretty(&outcome.unwrap()).unwrap());
     }

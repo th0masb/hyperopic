@@ -69,7 +69,7 @@ impl FromStr for Command {
             Ok(Command::Stop)
         } else if let Some(_) = QUIT.captures(s) {
             Ok(Command::Quit)
-        } else if let Some(_) = PONDERHIT.captures(s){
+        } else if let Some(_) = PONDERHIT.captures(s) {
             Ok(Command::PonderHit)
         } else if let Some(caps) = POSITION.captures(s) {
             let mut pos = if let Some(fen) = caps.name("fen") {
@@ -103,8 +103,7 @@ trait UciCaptures {
 
 impl UciCaptures for Captures<'_> {
     fn extract_duration(&self, name: &str) -> Option<Duration> {
-        self.name(name)
-            .map(|m| Duration::from_millis(m.as_str().parse::<u64>().unwrap()))
+        self.name(name).map(|m| Duration::from_millis(m.as_str().parse::<u64>().unwrap()))
     }
 }
 
@@ -217,7 +216,7 @@ mod test {
             " go\t wtime 2319 winc 32  ponder binc 890 \t".parse().unwrap()
         );
     }
-    
+
     #[test]
     fn ponderhit() {
         assert_eq!(Command::PonderHit, " ponderhit\t".parse().unwrap());

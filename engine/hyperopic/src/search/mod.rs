@@ -1,10 +1,10 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use serde::ser::SerializeStruct;
 use serde::Serializer;
+use serde::ser::SerializeStruct;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use end::SearchEndSignal;
 
 use crate::moves::Move;
