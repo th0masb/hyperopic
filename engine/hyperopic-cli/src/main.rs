@@ -5,22 +5,21 @@ mod openings;
 use crate::command::{Command, SearchParams};
 use crate::openings::OpeningsDatabase;
 use crate::state::{IDLE, SEARCHING, STOPPING};
-use anyhow::Result;
 use anyhow::anyhow;
+use anyhow::Result;
 use clap::Parser;
 use hyperopic::constants::side;
 use hyperopic::openings::OpeningService;
 use hyperopic::position::Position;
 use hyperopic::search::end::SearchEndSignal;
 use hyperopic::timing::TimeAllocator;
-use hyperopic::{ComputeMoveInput, Engine, LookupMoveService};
+use hyperopic::{ComputeMoveInput, ComputeMoveOutput, Engine, LookupMoveService};
 use latch::CountDownLatch;
 use log::{debug, error, info};
-use simple_logger::SimpleLogger;
 use state::PONDERING;
-use std::sync::Arc;
 use std::sync::atomic::Ordering::SeqCst;
-use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 const DEFAULT_TABLE_SIZE: usize = 1_000_000;
@@ -36,13 +35,15 @@ struct Args {
     /// Table row capacity for the transposition table
     #[clap(long, default_value = None)]
     table_size: Option<usize>,
-    #[clap(long, default_value = "info")]
-    log_level: log::LevelFilter,
+    #[clap(long, default_value = "None")]
+    log_config: Option<String>,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    SimpleLogger::new().with_level(args.log_level).without_timestamps().init()?;
+    if let Some(log_config) = args.log_config.as_ref() {
+        log4rs::init_file(log_config, Default::default())?;
+    }
     info!("Starting hyperopic CLI");
     Hyperopic::new(args).run()
 }
@@ -71,10 +72,13 @@ impl Hyperopic {
                 Err(err) => {
                     eprintln!("Could not open Openings database at {}: {}", openings_db, err)
                 }
-                Ok(db) => lookups.push(Arc::new(OpeningService {
-                    fetcher: db,
-                    max_depth: args.max_openings_depth,
-                })),
+                Ok(db) => {
+                    info!("Loaded openings from {}", openings_db);
+                    lookups.push(Arc::new(OpeningService {
+                        fetcher: db,
+                        max_depth: args.max_openings_depth,
+                    }))
+                }
             }
         }
         Hyperopic {
@@ -92,116 +96,115 @@ impl Hyperopic {
                 Err(e) => {
                     return Err(anyhow!("Error reading stdin {}", e));
                 }
-                Ok(line) => match line.as_str().parse::<Command>() {
-                    Err(e) => error!("Error parsing \"{}\": {}", line, e),
-                    Ok(command) => {
-                        let curr_state = self.state.load(SeqCst);
-                        debug!("In state {} processing command {:?}", curr_state, command);
-                        match command {
-                            Command::Uci => {
-                                println!("id name Hyperopic");
-                                println!("id author th0masb");
-                                println!("uciok");
-                            }
-                            Command::IsReady => println!("readyok"),
-                            Command::Debug(debug) => {}
-                            Command::SetOption(option) => {}
-                            Command::Quit => {
-                                match curr_state {
-                                    SEARCHING | PONDERING | STOPPING => {
-                                        let control = self.search_control.as_ref().unwrap();
-                                        control.stop_search.count_down();
-                                        control.wait_search.register_join().recv()?;
+                Ok(line) => {
+                    info!("Received command input: \"{}\"", line);
+                    match line.as_str().parse::<Command>() {
+                        Err(e) => error!("Error parsing \"{}\": {}", line, e),
+                        Ok(command) => {
+                            let curr_state = self.state.load(SeqCst);
+                            debug!("In state {} processing command {:?}", curr_state, command);
+                            match command {
+                                Command::Uci => {
+                                    println!("id name Hyperopic");
+                                    println!("id author th0masb");
+                                    println!("uciok");
+                                }
+                                Command::IsReady => println!("readyok"),
+                                Command::Debug(debug) => {}
+                                Command::SetOption(option) => {}
+                                Command::Quit => {
+                                    match curr_state {
+                                        SEARCHING | PONDERING | STOPPING => {
+                                            let control = self.search_control.as_ref().unwrap();
+                                            control.stop_search.count_down();
+                                            control.wait_search.register_join().recv()?;
+                                        }
+                                        _ => {}
                                     }
-                                    _ => {}
+                                    break;
                                 }
-                                break;
-                            }
-                            Command::NewGame => {
-                                if curr_state == IDLE {
-                                    self.engine.reset();
-                                }
-                            }
-                            Command::PonderHit => {
-                                if curr_state == PONDERING {
-                                    debug!("Received ponderhit command while pondering");
-                                    let search_duration = self.ponderhit_search_duration.unwrap();
-                                    let control = self.search_control.as_ref().unwrap().clone();
-                                    std::thread::spawn(move || {
-                                        debug!("PonderHit wait started for {:?}", search_duration);
-                                        std::thread::sleep(search_duration);
-                                        debug!("Stopping search after PonderHit");
-                                        control.stop_search.count_down()
-                                    });
-                                    self.ponderhit_search_duration = None;
-                                    self.state.store(SEARCHING, SeqCst);
-                                }
-                            }
-                            // Need to handle position string during pondering
-                            Command::Position(position) => self.position = position,
-                            Command::Stop => {
-                                if curr_state == SEARCHING || curr_state == PONDERING {
-                                    self.state.store(STOPPING, SeqCst);
-                                    self.ponderhit_search_duration = None;
-                                    if let Some(control) = self.search_control.as_ref() {
-                                        debug!("Stopping search after Stop");
-                                        control.stop_search.count_down();
+                                Command::NewGame => {
+                                    if curr_state == IDLE {
+                                        self.engine.reset();
                                     }
                                 }
-                            }
-                            Command::Search(params) => {
-                                if curr_state == IDLE {
-                                    let state_holder = self.state.clone();
-                                    state_holder.store(
-                                        if params.ponder { PONDERING } else { SEARCHING },
-                                        SeqCst,
-                                    );
-                                    let next_search_control = Arc::new(SearchControl::default());
-                                    self.search_control = Some(next_search_control.clone());
-                                    let mut search_duration = self.compute_search_duration(&params);
-                                    if params.ponder {
-                                        self.ponderhit_search_duration = Some(search_duration);
-                                        search_duration = Duration::from_secs(ONE_YEAR_IN_SECS)
+                                Command::PonderHit => {
+                                    if curr_state == PONDERING {
+                                        debug!("Received ponderhit command while pondering");
+                                        let search_duration =
+                                            self.ponderhit_search_duration.unwrap();
+                                        let control = self.search_control.as_ref().unwrap().clone();
+                                        std::thread::spawn(move || {
+                                            debug!(
+                                                "PonderHit wait started for {:?}",
+                                                search_duration
+                                            );
+                                            std::thread::sleep(search_duration);
+                                            debug!("Stopping search after PonderHit");
+                                            control.stop_search.count_down()
+                                        });
+                                        self.ponderhit_search_duration = None;
+                                        self.state.store(SEARCHING, SeqCst);
                                     }
-                                    let stop_instant = Instant::now() + search_duration;
-                                    self.engine.compute_move_async(
-                                        ComputeMoveInput {
-                                            position: self.position.clone(),
-                                            max_depth: None,
-                                            wait_for_end: params.ponder,
-                                            search_end: GoSearchEnd {
-                                                stop_latch: next_search_control.stop_search.clone(),
-                                                stop_instant,
+                                }
+                                // Need to handle position string during pondering
+                                Command::Position(position) => self.position = position,
+                                Command::Stop => {
+                                    if curr_state == SEARCHING || curr_state == PONDERING {
+                                        self.state.store(STOPPING, SeqCst);
+                                        self.ponderhit_search_duration = None;
+                                        if let Some(control) = self.search_control.as_ref() {
+                                            debug!("Stopping search after Stop");
+                                            control.stop_search.count_down();
+                                        }
+                                    }
+                                }
+                                Command::Search(params) => {
+                                    if curr_state == IDLE {
+                                        let state_holder = self.state.clone();
+                                        state_holder.store(
+                                            if params.ponder { PONDERING } else { SEARCHING },
+                                            SeqCst,
+                                        );
+                                        let next_search_control =
+                                            Arc::new(SearchControl::default());
+                                        self.search_control = Some(next_search_control.clone());
+                                        let mut search_duration =
+                                            self.compute_search_duration(&params);
+                                        if params.ponder {
+                                            self.ponderhit_search_duration = Some(search_duration);
+                                            search_duration = Duration::from_secs(ONE_YEAR_IN_SECS)
+                                        }
+                                        let stop_instant = Instant::now() + search_duration;
+                                        self.engine.compute_move_async(
+                                            ComputeMoveInput {
+                                                position: self.position.clone(),
+                                                max_depth: None,
+                                                wait_for_end: params.ponder,
+                                                search_end: GoSearchEnd {
+                                                    stop_latch: next_search_control
+                                                        .stop_search
+                                                        .clone(),
+                                                    stop_instant,
+                                                },
                                             },
-                                        },
-                                        move |result| {
-                                            debug!("Search completed");
-                                            state_holder.store(IDLE, SeqCst);
-                                            next_search_control.wait_search.count_down();
-                                            match result {
-                                                Err(e) => eprintln!("Error computing move: {}", e),
-                                                Ok(output) => {
-                                                    if let Some(ponder_move) =
-                                                        output.search_details.and_then(|details| {
-                                                            details.optimal_path.get(1).cloned()
-                                                        })
-                                                    {
-                                                        println!(
-                                                            "bestmove {} ponder {}",
-                                                            output.best_move, ponder_move
-                                                        );
-                                                    } else {
-                                                        println!("bestmove {}", output.best_move);
+                                            move |result| {
+                                                state_holder.store(IDLE, SeqCst);
+                                                next_search_control.wait_search.count_down();
+                                                match result {
+                                                    Err(e) => {
+                                                        eprintln!("Error computing move: {}", e)
                                                     }
+                                                    Ok(output) => format_output(output),
                                                 }
-                                            }
-                                        },
-                                    );
+                                            },
+                                        );
+                                    }
                                 }
                             }
                         }
                     }
-                },
+                }
             }
         }
         Ok(())
@@ -216,6 +219,25 @@ impl Hyperopic {
             if is_white { params.w_inc } else { params.b_inc }.unwrap_or(Duration::ZERO),
         )
     }
+}
+
+fn format_output(output: ComputeMoveOutput) {
+    if let Some(details) = output.search_details.as_ref() {
+        info!(
+            "bestmove {} at depth {} in {:?} with eval {}",
+            details.best_move, details.depth, details.time, details.relative_eval
+        );
+    }
+
+    println!(
+        "bestmove {}{}",
+        output.best_move,
+        output
+            .search_details
+            .and_then(|details| details.optimal_path.get(1).cloned())
+            .map(|m| format!(" ponder {}", m))
+            .unwrap_or("".to_string())
+    );
 }
 
 #[derive(Clone)]
