@@ -13,20 +13,23 @@ pub enum Command {
     Uci,
     IsReady,
     NewGame,
-    Ponder,
     PonderHit,
     Stop,
     Quit,
     Debug(bool),
     SetOption(EngineOpt),
     Position(Position),
-    Search {
-        w_time: Option<Duration>,
-        w_inc: Option<Duration>,
-        b_time: Option<Duration>,
-        b_inc: Option<Duration>,
-        move_time: Option<Duration>
-    },
+    Search(SearchParams),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SearchParams {
+    pub w_time: Option<Duration>,
+    pub w_inc: Option<Duration>,
+    pub b_time: Option<Duration>,
+    pub b_inc: Option<Duration>,
+    pub move_time: Option<Duration>,
+    pub ponder: bool,
 }
 
 lazy_static! {
@@ -41,6 +44,8 @@ lazy_static! {
     static ref BTIME: Regex = r"btime\s+(?<val>\d+)".parse().unwrap();
     static ref WINC: Regex = r"winc\s+(?<val>\d+)".parse().unwrap();
     static ref BINC: Regex = r"binc\s+(?<val>\d+)".parse().unwrap();
+    static ref PONDER: Regex = r"ponder".parse().unwrap();
+    static ref PONDERHIT: Regex = r"\s*ponderhit\s*".parse().unwrap();
     static ref MOVETIME: Regex = r"movetime\s+(?<val>\d+)".parse().unwrap();
     static ref POSITION: Regex =
         r"^\s*position\s+((fen\s+(?<fen>[^m]+))|(startpos))\s*(moves\s+(?<moves>.+))?$"
@@ -64,6 +69,8 @@ impl FromStr for Command {
             Ok(Command::Stop)
         } else if let Some(_) = QUIT.captures(s) {
             Ok(Command::Quit)
+        } else if let Some(_) = PONDERHIT.captures(s){
+            Ok(Command::PonderHit)
         } else if let Some(caps) = POSITION.captures(s) {
             let mut pos = if let Some(fen) = caps.name("fen") {
                 fen.as_str().parse::<Position>()?
@@ -76,13 +83,14 @@ impl FromStr for Command {
             Ok(Command::Position(pos))
         } else if let Some(caps) = SEARCH.captures(s) {
             let params = caps.name("params").unwrap().as_str();
-            Ok(Command::Search {
+            Ok(Command::Search(SearchParams {
                 w_time: WTIME.captures(params).extract_duration("val"),
                 w_inc: WINC.captures(params).extract_duration("val"),
                 b_time: BTIME.captures(params).extract_duration("val"),
                 b_inc: BINC.captures(params).extract_duration("val"),
-                move_time: MOVETIME.captures(params).extract_duration("val")
-            })
+                move_time: MOVETIME.captures(params).extract_duration("val"),
+                ponder: PONDER.captures(params).is_some(),
+            }))
         } else {
             Err(anyhow!("Unrecognized command"))
         }
@@ -168,13 +176,14 @@ mod test {
     #[test]
     fn search_1() {
         assert_eq!(
-            Command::Search {
+            Command::Search(SearchParams {
                 w_time: Some(Duration::from_millis(2319)),
                 w_inc: Some(Duration::from_millis(32)),
                 b_time: Some(Duration::from_millis(2212)),
                 b_inc: Some(Duration::from_millis(890)),
-                move_time: None
-            },
+                move_time: None,
+                ponder: false,
+            }),
             " go\t btime  2212 wtime 2319 winc 32  binc 890 \t".parse().unwrap()
         );
     }
@@ -182,14 +191,35 @@ mod test {
     #[test]
     fn search_2() {
         assert_eq!(
-            Command::Search {
+            Command::Search(SearchParams {
                 w_time: Some(Duration::from_millis(2319)),
                 w_inc: Some(Duration::from_millis(32)),
                 b_time: None,
                 b_inc: Some(Duration::from_millis(890)),
-                move_time: None
-            },
+                move_time: None,
+                ponder: false,
+            }),
             " go\t wtime 2319 winc 32  binc 890 \t".parse().unwrap()
         );
+    }
+
+    #[test]
+    fn search_3() {
+        assert_eq!(
+            Command::Search(SearchParams {
+                w_time: Some(Duration::from_millis(2319)),
+                w_inc: Some(Duration::from_millis(32)),
+                b_time: None,
+                b_inc: Some(Duration::from_millis(890)),
+                move_time: None,
+                ponder: true,
+            }),
+            " go\t wtime 2319 winc 32  ponder binc 890 \t".parse().unwrap()
+        );
+    }
+    
+    #[test]
+    fn ponderhit() {
+        assert_eq!(Command::PonderHit, " ponderhit\t".parse().unwrap());
     }
 }

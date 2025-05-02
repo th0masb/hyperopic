@@ -974,7 +974,9 @@ dependencies = [
  "clap 4.5.36",
  "hyperopic",
  "lazy_static",
+ "log",
  "regex",
+ "simple_logger",
 ]
 
 [[package]]

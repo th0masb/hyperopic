@@ -1,16 +1,16 @@
-use NodeType::{All, Cut, Pv};
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use std::cmp::{max, min};
 use std::sync::Arc;
 use std::time::Instant;
+use NodeType::{All, Cut, Pv};
 
 use crate::board::board_moves;
 use crate::constants::{class, create_piece, in_board};
 use crate::moves::Move;
 use crate::node;
 use crate::node::TreeNode;
-use crate::position::{CASTLING_DETAILS, TerminalState};
-use crate::search::end::SearchEnd;
+use crate::position::{TerminalState, CASTLING_DETAILS};
+use crate::search::end::SearchEndSignal;
 use crate::search::moves::{MoveGenerator, SearchMove};
 use crate::search::pv::PrincipleVariation;
 use crate::search::quiescent;
@@ -59,7 +59,7 @@ impl std::ops::Neg for SearchResponse {
     }
 }
 
-pub struct TreeSearcher<E: SearchEnd, T: Transpositions> {
+pub struct TreeSearcher<E: SearchEndSignal, T: Transpositions> {
     pub end: E,
     pub table: Arc<T>,
     pub moves: MoveGenerator,
@@ -79,9 +79,9 @@ enum TableLookup {
     Hit(SearchResponse),
 }
 
-impl<E: SearchEnd, T: Transpositions> TreeSearcher<E, T> {
+impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
     pub fn search(&mut self, node: &mut TreeNode, mut ctx: Context) -> Result<SearchResponse> {
-        if self.end.should_end(&ctx) {
+        if self.end.should_end_now() {
             return Err(anyhow!("Terminated at depth {}", ctx.depth));
         }
         let terminal_state = node.position().compute_terminal_state();

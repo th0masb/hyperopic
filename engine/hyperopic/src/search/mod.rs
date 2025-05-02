@@ -1,11 +1,11 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use serde::Serializer;
 use serde::ser::SerializeStruct;
+use serde::Serializer;
 
-use anyhow::{Result, anyhow};
-use end::SearchEnd;
+use anyhow::{anyhow, Result};
+use end::SearchEndSignal;
 
 use crate::moves::Move;
 use crate::node;
@@ -22,21 +22,24 @@ pub mod quiescent;
 pub mod search;
 mod table;
 
-const DEPTH_UPPER_BOUND: usize = 20;
+const DEPTH_UPPER_BOUND: u8 = 20;
 
 /// API function for executing search on the calling thread, we pass a root
 /// state and a terminator and compute the best move we can make from this
 /// state within the duration constraints implied by the terminator.
-pub fn search<E: SearchEnd + Clone, T: Transpositions>(
+pub fn search<E: SearchEndSignal + Clone, T: Transpositions>(
     node: TreeNode,
     parameters: SearchParameters<E, T>,
 ) -> Result<SearchOutcome> {
-    Search { node, end: parameters.end, transpositions: parameters.table }.search()
+    let max_depth = parameters.max_depth.unwrap_or(DEPTH_UPPER_BOUND);
+    let transpositions = parameters.table;
+    Search { node, end: parameters.end_signal, transpositions, max_depth }.search()
 }
 
-pub struct SearchParameters<E: SearchEnd + Clone, T: Transpositions> {
-    pub end: E,
+pub struct SearchParameters<E: SearchEndSignal + Clone, T: Transpositions> {
+    pub end_signal: E,
     pub table: Arc<T>,
+    pub max_depth: Option<u8>,
 }
 
 /// Data class composing information/result about/of a best move search.
@@ -104,10 +107,11 @@ mod searchoutcome_serialize_test {
     }
 }
 
-struct Search<E: SearchEnd, T: Transpositions> {
+struct Search<E: SearchEndSignal, T: Transpositions> {
     node: TreeNode,
     end: E,
     transpositions: Arc<T>,
+    max_depth: u8,
 }
 
 struct BestMoveResponse {
@@ -117,14 +121,14 @@ struct BestMoveResponse {
     depth: u8,
 }
 
-impl<E: SearchEnd + Clone, T: Transpositions> Search<E, T> {
+impl<E: SearchEndSignal + Clone, T: Transpositions> Search<E, T> {
     pub fn search(&mut self) -> Result<SearchOutcome> {
         let search_start = Instant::now();
         let mut break_err = anyhow!("Terminated before search began");
         let mut pv = PrincipleVariation::default();
         let mut best_response = None;
-        for i in 1..DEPTH_UPPER_BOUND {
-            match self.best_move(i as u8, search_start, &pv) {
+        for i in 1..=self.max_depth {
+            match self.best_move(i, search_start, &pv) {
                 Err(message) => {
                     break_err = anyhow!("{}", message);
                     break;

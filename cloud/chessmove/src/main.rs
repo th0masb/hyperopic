@@ -6,9 +6,9 @@ use log;
 use simple_logger::SimpleLogger;
 
 use anyhow::anyhow;
+use hyperopic::openings::OpeningService;
 use hyperopic::position::Position;
 use hyperopic::{ComputeMoveInput, Engine, LookupMoveService};
-use hyperopic::openings::OpeningService;
 use lambda_payloads::chessmove::*;
 use lichess_api::LichessEndgameClient;
 use openings::{DynamoOpeningClient, OpeningTable};
@@ -27,13 +27,12 @@ async fn move_handler(event: LambdaEvent<ChooseMoveEvent>) -> Result<ChooseMoveO
     let choose_move = &event.payload;
     let position = choose_move.moves_played.parse::<Position>()?;
     let engine = Engine::new(TABLE_SIZE, load_lookup_services(&choose_move.features));
-    let output = engine.compute_move(ComputeMoveInput {
+    let input = ComputeMoveInput::new(
         position,
-        remaining: Duration::from_millis(choose_move.clock_millis.remaining),
-        increment: Duration::from_millis(choose_move.clock_millis.increment),
-        stop_flag: None,
-        max_time: None,
-    })?;
+        Duration::from_millis(choose_move.clock_millis.remaining),
+        Duration::from_millis(choose_move.clock_millis.increment),
+    );
+    let output = engine.compute_move(input)?;
     Ok(ChooseMoveOutput {
         best_move: output.best_move.to_string(),
         search_details: output.search_details.map(|details| SearchDetails {
@@ -44,7 +43,9 @@ async fn move_handler(event: LambdaEvent<ChooseMoveEvent>) -> Result<ChooseMoveO
     })
 }
 
-fn load_lookup_services(features: &Vec<ChooseMoveFeature>) -> Vec<Arc<dyn LookupMoveService + Send + Sync>> {
+fn load_lookup_services(
+    features: &Vec<ChooseMoveFeature>,
+) -> Vec<Arc<dyn LookupMoveService + Send + Sync>> {
     let mut services: Vec<Arc<dyn LookupMoveService + Send + Sync>> = vec![];
     if !features.contains(&ChooseMoveFeature::DisableOpeningsLookup) {
         let table_var = std::env::var(TABLE_ENV_KEY)
