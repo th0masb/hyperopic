@@ -9,3 +9,4 @@
 **/*.iml
 **/flamegraph*.svg
 **/perf.data*
+.hyperopic-config

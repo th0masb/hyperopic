@@ -1,6 +1,5 @@
 use crate::moves::Move;
 use crate::position::Position;
-use std::cmp::min;
 use std::sync::{Arc, Mutex};
 
 pub trait Transpositions {
@@ -38,12 +37,12 @@ impl Transpositions for TranspositionsImpl {
     fn put(&self, pos: &Position, root_index: u16, depth: u8, eval: i32, node_type: NodeType) {
         let index = self.index(pos.key);
         let mut curr = self.inner[index].lock().unwrap();
-        if let Some(existing) = curr.as_ref() {
-            let index_diff = root_index - min(existing.root_index, root_index);
-            if existing.depth as u16 > depth as u16 + index_diff {
-                return;
-            }
-        }
+        // if let Some(existing) = curr.as_ref() {
+        //     let index_diff = root_index - min(existing.root_index, root_index);
+        //     if existing.depth as u16 > depth as u16 + index_diff {
+        //         return;
+        //     }
+        // }
         *curr = Some(Arc::new(TableEntry { root_index, depth, eval, key: pos.key, node_type }));
     }
 
