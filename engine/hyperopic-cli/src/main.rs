@@ -18,7 +18,7 @@ use latch::CountDownLatch;
 use log::{debug, error, info};
 use state::PONDERING;
 use std::sync::atomic::Ordering::SeqCst;
-use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -110,8 +110,7 @@ impl Hyperopic {
                                     println!("uciok");
                                 }
                                 Command::IsReady => println!("readyok"),
-                                Command::Debug(debug) => {}
-                                Command::SetOption(option) => {}
+                                Command::Debug(_) => {}
                                 Command::Quit => {
                                     match curr_state {
                                         SEARCHING | PONDERING | STOPPING => {
@@ -258,8 +257,9 @@ impl SearchEndSignal for GoSearchEnd {
 }
 
 struct SearchControl {
+    /// Stop the current search by counting down once
     stop_search: Arc<CountDownLatch>,
-    search_end: Arc<AtomicU64>,
+    /// Join this latch to wait for search completion
     wait_search: Arc<CountDownLatch>,
 }
 
@@ -268,10 +268,6 @@ impl Default for SearchControl {
         SearchControl {
             stop_search: Arc::new(CountDownLatch::new(1)),
             wait_search: Arc::new(CountDownLatch::new(1)),
-            search_end: Arc::new(AtomicU64::new(0)),
         }
     }
 }
-
-#[derive(Debug, Clone, PartialEq)]
-enum EngineOpt {}

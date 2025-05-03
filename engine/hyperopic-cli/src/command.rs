@@ -1,4 +1,3 @@
-use crate::EngineOpt;
 use anyhow::anyhow;
 use hyperopic::position::Position;
 use lazy_static::lazy_static;
@@ -17,7 +16,6 @@ pub enum Command {
     Stop,
     Quit,
     Debug(bool),
-    SetOption(EngineOpt),
     Position(Position),
     Search(SearchParams),
 }

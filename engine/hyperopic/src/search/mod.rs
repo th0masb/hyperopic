@@ -170,6 +170,7 @@ impl<E: SearchEndSignal + Clone, T: Transpositions> Search<E, T> {
             table: self.transpositions.clone(),
             moves: MoveGenerator::default(),
             pv: pv.clone(),
+            node_counter: 0
         }
         .search(
             &mut self.node,

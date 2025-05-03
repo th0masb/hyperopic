@@ -16,6 +16,8 @@ use crate::search::pv::PrincipleVariation;
 use crate::search::quiescent;
 use crate::search::table::{NodeType, Transpositions};
 
+const END_CHECK_FREQ: u32 = 1000;
+
 /// Provides relevant callstack information for the search to
 /// use during the traversal of the tree.
 pub struct Context {
@@ -64,6 +66,7 @@ pub struct TreeSearcher<E: SearchEndSignal, T: Transpositions> {
     pub table: Arc<T>,
     pub moves: MoveGenerator,
     pub pv: PrincipleVariation,
+    pub node_counter: u32
 }
 
 fn reposition_first(dest: &mut Vec<SearchMove>, new_first: &Move) {
@@ -81,7 +84,8 @@ enum TableLookup {
 
 impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
     pub fn search(&mut self, node: &mut TreeNode, mut ctx: Context) -> Result<SearchResponse> {
-        if self.end.should_end_now() {
+        self.node_counter = (self.node_counter + 1) % END_CHECK_FREQ;
+        if self.node_counter == 0 && self.end.should_end_now() {
             return Err(anyhow!("Terminated at depth {}", ctx.depth));
         }
         let terminal_state = node.position().compute_terminal_state();
