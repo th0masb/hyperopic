@@ -5,8 +5,8 @@ mod openings;
 use crate::command::{Command, SearchParams};
 use crate::openings::OpeningsDatabase;
 use crate::state::{IDLE, SEARCHING, STOPPING};
-use anyhow::anyhow;
 use anyhow::Result;
+use anyhow::anyhow;
 use clap::Parser;
 use hyperopic::constants::side;
 use hyperopic::openings::OpeningService;
@@ -17,9 +17,10 @@ use hyperopic::{ComputeMoveInput, ComputeMoveOutput, Engine, LookupMoveService};
 use latch::CountDownLatch;
 use log::{debug, error, info};
 use state::PONDERING;
+use std::cmp::max;
+use std::sync::Arc;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicU8, Ordering};
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 const DEFAULT_TABLE_SIZE: usize = 1_000_000;
@@ -70,7 +71,7 @@ impl Hyperopic {
         if let Some(openings_db) = args.openings_db {
             match OpeningsDatabase::new(std::path::PathBuf::from(openings_db.clone())) {
                 Err(err) => {
-                    eprintln!("Could not open Openings database at {}: {}", openings_db, err)
+                    error!("Could not open Openings database at {}: {}", openings_db, err)
                 }
                 Ok(db) => {
                     info!("Loaded openings from {}", openings_db);
@@ -252,7 +253,8 @@ impl SearchEndSignal for GoSearchEnd {
     }
 
     fn join(&self) -> () {
-        self.stop_latch.register_join().recv_timeout(self.stop_instant - Instant::now()).ok();
+        let duration_until_stop = max(Duration::ZERO, self.stop_instant - Instant::now());
+        self.stop_latch.register_join().recv_timeout(duration_until_stop).ok();
     }
 }
 

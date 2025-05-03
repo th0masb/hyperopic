@@ -66,7 +66,7 @@ pub struct TreeSearcher<E: SearchEndSignal, T: Transpositions> {
     pub table: Arc<T>,
     pub moves: MoveGenerator,
     pub pv: PrincipleVariation,
-    pub node_counter: u32
+    pub node_counter: u32,
 }
 
 fn reposition_first(dest: &mut Vec<SearchMove>, new_first: &Move) {
