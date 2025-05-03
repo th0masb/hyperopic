@@ -30,7 +30,9 @@ pub struct ChallengeTableClient {
 pub struct ChallengeTableEntry {
     pub challenger: String,
     pub challenge_id: String,
+    #[allow(dead_code)]
     pub challenge_epoch_day: u64,
+    #[allow(dead_code)]
     pub game_started: bool,
 }
 

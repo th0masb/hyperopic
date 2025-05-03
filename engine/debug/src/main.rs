@@ -84,7 +84,7 @@ impl Transpositions for DebugTranspositions {
     }
 
     fn put(&self, pos: &Position, root_index: u16, depth: u8, eval: i32, node_type: NodeType) {
-        let index = (pos.key % self.store.len() as u64) as usize;
+        let _index = (pos.key % self.store.len() as u64) as usize;
         let m = match &node_type {
             NodeType::Pv(path) => path.first().unwrap(),
             NodeType::Cut(m) => m,
@@ -93,7 +93,7 @@ impl Transpositions for DebugTranspositions {
         if !pos.moves(&Moves::All).contains(m) {
             panic!("Bad node {} <-> {:?}", pos.to_string(), node_type)
         }
-        let entry = TableEntry { key: pos.key, root_index, depth, eval, node_type };
+        let _entry = TableEntry { key: pos.key, root_index, depth, eval, node_type };
         //self.store[index] = Some((to_table_id(&pos), entry))
         panic!("Do me")
     }
