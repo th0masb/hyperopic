@@ -36,7 +36,7 @@ struct Args {
     /// Table row capacity for the transposition table
     #[clap(long, default_value = None)]
     table_size: Option<usize>,
-    #[clap(long, default_value = "None")]
+    #[clap(long, default_value = None)]
     log_config: Option<String>,
 }
 
@@ -223,17 +223,23 @@ impl Hyperopic {
 
 fn format_output(output: ComputeMoveOutput) {
     if let Some(details) = output.search_details.as_ref() {
-        info!(
-            "bestmove {} at depth {} in {:?} with eval {}",
-            details.best_move, details.depth, details.time, details.relative_eval
+        // TODO Handle score output better
+        let score_cp = (details.relative_eval as f64 / 2.3).round() as i32;
+        let search_info = format!(
+            "info depth {} time {} score cp {}",
+            details.depth,
+            details.time.as_millis(),
+            score_cp
         );
+        info!("{}", search_info);
+        println!("{}", search_info);
     }
-
     println!(
         "bestmove {}{}",
         output.best_move,
         output
             .search_details
+            .as_ref()
             .and_then(|details| details.optimal_path.get(1).cloned())
             .map(|m| format!(" ponder {}", m))
             .unwrap_or("".to_string())
