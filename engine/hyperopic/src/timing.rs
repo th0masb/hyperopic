@@ -1,7 +1,9 @@
 use std::cmp::{max, min};
 use std::time::Duration;
 
- const DEFAULT_MIN_COMPUTE_TIME_MS: u64 = 50;
+const DEFAULT_MIN_COMPUTE_TIME_MS: u64 = 50;
+const DEFAULT_INC_ONLY_THRESHOLD_MILLIS: u64 = 500;
+const DEFAULT_INC_USED_UNDER_THRESHOLD: f64 = 0.8;
 
 #[derive(Debug, Clone)]
 pub struct TimeAllocator {
@@ -12,6 +14,7 @@ pub struct TimeAllocator {
     pub latency: Duration,
     pub min_compute_time: Duration,
     pub increment_only_threshold: Duration,
+    pub inc_used_under_threshold: f64
 }
 
 impl Default for TimeAllocator {
@@ -20,7 +23,8 @@ impl Default for TimeAllocator {
             half_moves_remaining: expected_half_moves_remaining,
             latency: Duration::ZERO,
             min_compute_time: Duration::from_millis(DEFAULT_MIN_COMPUTE_TIME_MS),
-            increment_only_threshold: Duration::ZERO,
+            increment_only_threshold: Duration::from_millis(DEFAULT_INC_ONLY_THRESHOLD_MILLIS),
+            inc_used_under_threshold: DEFAULT_INC_USED_UNDER_THRESHOLD,
         }
     }
 }
@@ -33,8 +37,14 @@ impl TimeAllocator {
         remaining_time: Duration,
         increment: Duration,
     ) -> Duration {
+        // Idea is if we are under some threshold left on the clock we will only use the increment
+        // time to think. We leave some of the inc on the table to try and gain some time back on
+        // the clock.
         if remaining_time < self.increment_only_threshold && increment > Duration::ZERO {
-            return max(self.min_compute_time, increment - min(increment, self.latency));
+            let inc = increment - min(increment, self.latency);
+            let inc = inc.as_millis() as f64;
+            let inc = (inc * self.inc_used_under_threshold).round() as u64;
+            return max(self.min_compute_time, Duration::from_millis(inc));
         }
         let remaining_after_latency = remaining_time - min(remaining_time, self.latency);
         // Divide by two because we need to think for half of the remaining moves
@@ -69,9 +79,10 @@ mod test {
             min_compute_time: Duration::from_millis(500),
             latency: Duration::from_millis(200),
             increment_only_threshold: Duration::from_millis(5000),
+            inc_used_under_threshold: 0.8
         };
         assert_eq!(
-            Duration::from_millis(800),
+            Duration::from_millis(640),
             timing.allocate(20, Duration::from_millis(4999), Duration::from_millis(1000))
         )
     }
@@ -83,6 +94,7 @@ mod test {
             min_compute_time: Duration::from_millis(1100),
             latency: Duration::from_millis(200),
             increment_only_threshold: Duration::from_millis(100),
+            inc_used_under_threshold: 0.8
         };
         assert_eq!(
             Duration::from_millis(1100),
@@ -97,6 +109,7 @@ mod test {
             min_compute_time: Duration::from_millis(1100),
             latency: Duration::from_millis(200),
             increment_only_threshold: Duration::from_millis(100),
+            inc_used_under_threshold: 0.8
         };
 
         assert_eq!(
@@ -112,6 +125,7 @@ mod test {
             min_compute_time: Duration::from_millis(1100),
             latency: Duration::from_millis(200),
             increment_only_threshold: Duration::from_millis(100),
+            inc_used_under_threshold: 0.8
         };
 
         assert_eq!(
@@ -127,6 +141,7 @@ mod test {
             min_compute_time: Duration::from_millis(100),
             latency: Duration::from_millis(200),
             increment_only_threshold: Duration::from_millis(5000),
+            inc_used_under_threshold: 0.8
         };
 
         assert_eq!(
