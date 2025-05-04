@@ -1,6 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use hyperopic::moves::Move;
+use hyperopic::timing::TimeAllocator;
 use hyperopic::{ComputeMoveInput, Engine};
 use std::time::Duration;
 
@@ -24,7 +25,12 @@ impl MoveChooser for Engine {
     ) -> Result<Move> {
         let position = moves_played.parse()?;
         tokio::task::block_in_place(|| {
-            self.compute_move(ComputeMoveInput::new(position, remaining, increment))
+            self.compute_move(ComputeMoveInput::new(
+                position,
+                remaining,
+                increment,
+                TimeAllocator::default(),
+            ))
         })
         .map(|output| {
             match output.search_details {

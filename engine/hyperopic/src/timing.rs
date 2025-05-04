@@ -1,8 +1,7 @@
+use std::cmp::{max, min};
 use std::time::Duration;
 
-const DEFAULT_MOVE_LATENCY_MS: u64 = 200;
-const DEFAULT_MIN_COMPUTE_TIME_MS: u64 = 200;
-const INCREMENT_ONLY_THRESHOLD_MS: u64 = 5000;
+ const DEFAULT_MIN_COMPUTE_TIME_MS: u64 = 50;
 
 #[derive(Debug, Clone)]
 pub struct TimeAllocator {
@@ -10,18 +9,18 @@ pub struct TimeAllocator {
     /// still to play.
     half_moves_remaining: fn(usize) -> f64,
     /// Any time added to computing a move which is not spent thinking
-    latency: Duration,
-    min_compute_time: Duration,
-    increment_only_threshold: Duration,
+    pub latency: Duration,
+    pub min_compute_time: Duration,
+    pub increment_only_threshold: Duration,
 }
 
 impl Default for TimeAllocator {
     fn default() -> Self {
         TimeAllocator {
             half_moves_remaining: expected_half_moves_remaining,
-            latency: Duration::from_millis(DEFAULT_MOVE_LATENCY_MS),
+            latency: Duration::ZERO,
             min_compute_time: Duration::from_millis(DEFAULT_MIN_COMPUTE_TIME_MS),
-            increment_only_threshold: Duration::from_millis(INCREMENT_ONLY_THRESHOLD_MS),
+            increment_only_threshold: Duration::ZERO,
         }
     }
 }
@@ -34,22 +33,16 @@ impl TimeAllocator {
         remaining_time: Duration,
         increment: Duration,
     ) -> Duration {
-        if remaining_time < self.increment_only_threshold && increment > Duration::default() {
-            return std::cmp::max(self.min_compute_time, increment - self.latency);
+        if remaining_time < self.increment_only_threshold && increment > Duration::ZERO {
+            return max(self.min_compute_time, increment - min(increment, self.latency));
         }
-
-        let remaining_including_latency = if remaining_time < self.latency {
-            Duration::from_millis(0)
-        } else {
-            remaining_time - self.latency
-        };
-
+        let remaining_after_latency = remaining_time - min(remaining_time, self.latency);
         // Divide by two because we need to think for half of the remaining moves
         let exp_remaining = (self.half_moves_remaining)(half_moves_played) / 2f64;
         let estimated_no_inc =
-            ((remaining_including_latency.as_millis() as f64) / exp_remaining).round() as u64;
+            ((remaining_after_latency.as_millis() as f64) / exp_remaining).round() as u64;
         let estimated = Duration::from_millis(estimated_no_inc) + increment;
-        std::cmp::max(estimated, self.min_compute_time)
+        max(estimated, self.min_compute_time)
     }
 }
 
@@ -124,6 +117,21 @@ mod test {
         assert_eq!(
             Duration::from_millis(1100),
             timing.allocate(200, Duration::from_secs(10), Duration::from_millis(999))
+        );
+    }
+
+    #[test]
+    fn latency_larger_than_increment() {
+        let timing = TimeAllocator {
+            half_moves_remaining: dummy_half_moves_remaining,
+            min_compute_time: Duration::from_millis(100),
+            latency: Duration::from_millis(200),
+            increment_only_threshold: Duration::from_millis(5000),
+        };
+
+        assert_eq!(
+            Duration::from_millis(100),
+            timing.allocate(200, Duration::from_secs(1), Duration::from_millis(100))
         );
     }
 }
