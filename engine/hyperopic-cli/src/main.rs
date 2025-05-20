@@ -15,13 +15,18 @@ use hyperopic::search::end::SearchEndSignal;
 use hyperopic::timing::TimeAllocator;
 use hyperopic::{ComputeMoveInput, ComputeMoveOutput, Engine, LookupMoveService};
 use latch::CountDownLatch;
-use log::{debug, error, info};
+use log::{debug, error, info, LevelFilter};
 use state::PONDERING;
 use std::cmp::max;
 use std::sync::Arc;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicU8, Ordering};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
+use log4rs::append::console::{ConsoleAppender, Target};
+use log4rs::Config;
+use log4rs::config::{Appender, Root};
+use log4rs::encode::pattern::PatternEncoder;
+use log4rs::filter::threshold::ThresholdFilter;
 
 const DEFAULT_TABLE_SIZE: usize = 1_000_000;
 const ONE_YEAR_IN_SECS: u64 = 60 * 60 * 24 * 365;
@@ -44,9 +49,21 @@ fn main() -> Result<()> {
     let args = Args::parse();
     if let Some(log_config) = args.log_config.as_ref() {
         log4rs::init_file(log_config, Default::default())?;
+    } else {
+        log4rs::init_config(create_default_logging())?;
     }
     info!("Starting hyperopic CLI");
     Hyperopic::new(args).run()
+}
+
+fn create_default_logging() -> Config {
+    let log_pattern = PatternEncoder::new("{d(%Y-%m-%d %H:%M:%S)(utc)} {l}: {m}{n}");
+    let log_output = ConsoleAppender::builder().target(Target::Stderr).encoder(Box::new(log_pattern)).build();
+    
+    Config::builder()
+        .appender(Appender::builder().build("stderr", Box::new(log_output)))
+        .build(Root::builder().appender("stderr").build(LevelFilter::Info))
+        .unwrap()
 }
 
 mod state {
@@ -98,7 +115,9 @@ impl Hyperopic {
                     return Err(anyhow!("Error reading stdin {}", e));
                 }
                 Ok(line) => {
-                    info!("Received command input: \"{}\"", line);
+                    //SystemTime::now().;
+                    let command_received_instant = Instant::now();
+                    info!("Received command input: \"{}\" at", line);
                     match line.as_str().parse::<Command>() {
                         Err(e) => error!("Error parsing \"{}\": {}", line, e),
                         Ok(command) => {
@@ -175,7 +194,7 @@ impl Hyperopic {
                                             self.ponderhit_search_duration = Some(search_duration);
                                             search_duration = Duration::from_secs(ONE_YEAR_IN_SECS)
                                         }
-                                        let stop_instant = Instant::now() + search_duration;
+                                        let stop_instant = command_received_instant + search_duration;
                                         self.engine.compute_move_async(
                                             ComputeMoveInput {
                                                 position: self.position.clone(),
@@ -193,7 +212,7 @@ impl Hyperopic {
                                                 next_search_control.wait_search.count_down();
                                                 match result {
                                                     Err(e) => {
-                                                        eprintln!("Error computing move: {}", e)
+                                                        error!("Error computing move: {}", e)
                                                     }
                                                     Ok(output) => format_output(output),
                                                 }
