@@ -8,15 +8,14 @@ use simple_logger::SimpleLogger;
 use anyhow::anyhow;
 use hyperopic::openings::OpeningService;
 use hyperopic::position::Position;
-use hyperopic::{ComputeMoveInput, Engine, LookupMoveService};
 use hyperopic::timing::TimeAllocator;
+use hyperopic::{ComputeMoveInput, Engine, LookupMoveService};
 use lambda_payloads::chessmove::*;
 use lichess_api::LichessEndgameClient;
 use openings::{DynamoOpeningClient, OpeningTable};
 
 const TABLE_SIZE: usize = 10000;
 const LATENCY_MILLIS: u64 = 200;
-const INCREMENT_ONLY_THRESHOLD_MILLIS: u64 = 5000;
 const TABLE_ENV_KEY: &'static str = "APP_CONFIG";
 
 #[tokio::main]
@@ -30,14 +29,11 @@ async fn move_handler(event: LambdaEvent<ChooseMoveEvent>) -> Result<ChooseMoveO
     let choose_move = &event.payload;
     let position = choose_move.moves_played.parse::<Position>()?;
     let engine = Engine::new(TABLE_SIZE, load_lookup_services(&choose_move.features));
-    let mut timing = TimeAllocator::default();
-    timing.latency = Duration::from_millis(LATENCY_MILLIS);
-    timing.increment_only_threshold = Duration::from_millis(INCREMENT_ONLY_THRESHOLD_MILLIS);
     let input = ComputeMoveInput::new(
         position,
         Duration::from_millis(choose_move.clock_millis.remaining),
         Duration::from_millis(choose_move.clock_millis.increment),
-        timing
+        TimeAllocator::with_latency(Duration::from_millis(LATENCY_MILLIS)),
     );
     let output = engine.compute_move(input)?;
     Ok(ChooseMoveOutput {

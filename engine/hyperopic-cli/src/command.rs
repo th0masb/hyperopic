@@ -2,6 +2,7 @@ use anyhow::anyhow;
 use hyperopic::position::Position;
 use lazy_static::lazy_static;
 use regex::{Captures, Regex};
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -18,6 +19,16 @@ pub enum Command {
     Debug(bool),
     Position(Position),
     Search(SearchParams),
+}
+
+impl Display for Command {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let Command::Position(pos) = self {
+            write!(f, "Position({})", pos)
+        } else {
+            write!(f, "{:?}", self)
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
