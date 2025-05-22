@@ -266,11 +266,11 @@ fn format_output(output: ComputeMoveOutput) {
             details.time.as_millis(),
             score_cp
         );
-        info!("{}", search_info);
+        debug!("{}", search_info);
         println!("{}", search_info);
     }
     debug!("Writing bestmove at {}", format_millis(SystemTime::now()));
-    println!(
+    let output = format!(
         "bestmove {}{}",
         output.best_move,
         output
@@ -280,6 +280,8 @@ fn format_output(output: ComputeMoveOutput) {
             .map(|m| format!(" ponder {}", m))
             .unwrap_or("".to_string())
     );
+    debug!("{}", output);
+    println!("{}", output);
 }
 
 #[derive(Clone)]

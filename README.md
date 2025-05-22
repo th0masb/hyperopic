@@ -2,7 +2,7 @@
 
 ---
 
-![Logo](https://th0masb-public-assets.s3.eu-west-2.amazonaws.com/hyperopic-512.png)
+![Logo](assets/hyperopic-256.png)
 
 ### overview
 
@@ -28,14 +28,19 @@ available for challenging.
 ### challenging the bot
 
 You need an account on lichess.org which is completely free and just requires an
-email address. Then follow the following steps starting from the home screen:
+email address. To challenge Hyperopic to a game, visit its 
+[profile page][1], select the "Challenge to a game" button (like in the screenshot 
+below) and choose your game parameters.
 
-![Challenge how-to](https://th0masb-public-assets.s3.eu-west-2.amazonaws.com/myopic-challenge-how-to.gif)
+![Challenge how-to](assets/challenge.png)
 
 Some things to note about the parameters of the game:
 
 - Only the "Standard" variant is supported
 - You can only play "Real time" games against the bot, i.e. games with a clock,
   to constrain the use of AWS resources to keep within the free tier
-- The minutes per side supported is 1-10 inclusive and the increment supported
-  is 0-5 inclusive 
+- The minutes per side supported is 1–5 inclusive, and the increment supported
+  is 0–5 inclusive 
+- A rate limit of 5 games per day per user is enforced
+
+[1]: https://lichess.org/@/Hyperopic
