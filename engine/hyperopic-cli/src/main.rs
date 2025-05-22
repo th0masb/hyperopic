@@ -15,18 +15,17 @@ use hyperopic::search::end::SearchEndSignal;
 use hyperopic::timing::TimeAllocator;
 use hyperopic::{ComputeMoveInput, ComputeMoveOutput, Engine, LookupMoveService};
 use latch::CountDownLatch;
-use log::{debug, error, info, LevelFilter};
+use log::{LevelFilter, debug, error, info};
+use log4rs::Config;
+use log4rs::append::console::{ConsoleAppender, Target};
+use log4rs::config::{Appender, Root};
+use log4rs::encode::pattern::PatternEncoder;
 use state::PONDERING;
 use std::cmp::max;
 use std::sync::Arc;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicU8, Ordering};
-use std::time::{Duration, Instant, SystemTime};
-use log4rs::append::console::{ConsoleAppender, Target};
-use log4rs::Config;
-use log4rs::config::{Appender, Root};
-use log4rs::encode::pattern::PatternEncoder;
-use log4rs::filter::threshold::ThresholdFilter;
+use std::time::{Duration, SystemTime};
 
 const DEFAULT_TABLE_SIZE: usize = 1_000_000;
 const ONE_YEAR_IN_SECS: u64 = 60 * 60 * 24 * 365;
@@ -43,6 +42,8 @@ struct Args {
     table_size: Option<usize>,
     #[clap(long, default_value = None)]
     log_config: Option<String>,
+    #[clap(long, default_value = None)]
+    log_level: Option<LevelFilter>,
 }
 
 fn main() -> Result<()> {
@@ -50,19 +51,20 @@ fn main() -> Result<()> {
     if let Some(log_config) = args.log_config.as_ref() {
         log4rs::init_file(log_config, Default::default())?;
     } else {
-        log4rs::init_config(create_default_logging())?;
+        log4rs::init_config(create_default_logging(args.log_level.unwrap_or(LevelFilter::Info)))?;
     }
     info!("Starting hyperopic CLI");
     Hyperopic::new(args).run()
 }
 
-fn create_default_logging() -> Config {
+fn create_default_logging(level_filter: LevelFilter) -> Config {
     let log_pattern = PatternEncoder::new("{d(%Y-%m-%d %H:%M:%S)(utc)} {l}: {m}{n}");
-    let log_output = ConsoleAppender::builder().target(Target::Stderr).encoder(Box::new(log_pattern)).build();
-    
+    let log_output =
+        ConsoleAppender::builder().target(Target::Stderr).encoder(Box::new(log_pattern)).build();
+
     Config::builder()
         .appender(Appender::builder().build("stderr", Box::new(log_output)))
-        .build(Root::builder().appender("stderr").build(LevelFilter::Info))
+        .build(Root::builder().appender("stderr").build(level_filter))
         .unwrap()
 }
 
@@ -115,14 +117,17 @@ impl Hyperopic {
                     return Err(anyhow!("Error reading stdin {}", e));
                 }
                 Ok(line) => {
-                    //SystemTime::now().;
-                    let command_received_instant = Instant::now();
-                    info!("Received command input: \"{}\" at", line);
+                    let command_received_time = SystemTime::now();
+                    debug!(
+                        "Received command input: \"{}\" at {}",
+                        line,
+                        format_millis(command_received_time)
+                    );
                     match line.as_str().parse::<Command>() {
                         Err(e) => error!("Error parsing \"{}\": {}", line, e),
                         Ok(command) => {
                             let curr_state = self.state.load(SeqCst);
-                            debug!("In state {} processing command {:?}", curr_state, command);
+                            debug!("In state {} processing command {}", curr_state, command);
                             match command {
                                 Command::Uci => {
                                     println!("id name Hyperopic");
@@ -190,21 +195,26 @@ impl Hyperopic {
                                         self.search_control = Some(next_search_control.clone());
                                         let mut search_duration =
                                             self.compute_search_duration(&params);
+                                        debug!(
+                                            "Computed search duration {}ms",
+                                            search_duration.as_millis()
+                                        );
                                         if params.ponder {
                                             self.ponderhit_search_duration = Some(search_duration);
                                             search_duration = Duration::from_secs(ONE_YEAR_IN_SECS)
                                         }
-                                        let stop_instant = command_received_instant + search_duration;
+                                        let stop_time = command_received_time + search_duration;
+                                        debug!("Stopping search at {}", format_millis(stop_time));
                                         self.engine.compute_move_async(
                                             ComputeMoveInput {
                                                 position: self.position.clone(),
                                                 max_depth: None,
                                                 wait_for_end: params.ponder,
                                                 search_end: GoSearchEnd {
+                                                    stop_time,
                                                     stop_latch: next_search_control
                                                         .stop_search
                                                         .clone(),
-                                                    stop_instant,
                                                 },
                                             },
                                             move |result| {
@@ -240,6 +250,12 @@ impl Hyperopic {
     }
 }
 
+fn format_millis(time: SystemTime) -> String {
+    time.duration_since(SystemTime::UNIX_EPOCH)
+        .map(|t| t.as_millis().to_string())
+        .unwrap_or("TIME_ERR".to_string())
+}
+
 fn format_output(output: ComputeMoveOutput) {
     if let Some(details) = output.search_details.as_ref() {
         // TODO Handle score output better
@@ -253,6 +269,7 @@ fn format_output(output: ComputeMoveOutput) {
         info!("{}", search_info);
         println!("{}", search_info);
     }
+    debug!("Writing bestmove at {}", format_millis(SystemTime::now()));
     println!(
         "bestmove {}{}",
         output.best_move,
@@ -267,18 +284,18 @@ fn format_output(output: ComputeMoveOutput) {
 
 #[derive(Clone)]
 struct GoSearchEnd {
-    stop_instant: Instant,
+    stop_time: SystemTime,
     stop_latch: Arc<CountDownLatch>,
 }
 
 impl SearchEndSignal for GoSearchEnd {
     fn should_end_now(&self) -> bool {
-        self.stop_instant.should_end_now()
-            || self.stop_latch.get_current_count(Ordering::Relaxed) == 0
+        self.stop_time.should_end_now() || self.stop_latch.get_current_count(Ordering::Relaxed) == 0
     }
 
     fn join(&self) -> () {
-        let duration_until_stop = max(Duration::ZERO, self.stop_instant - Instant::now());
+        let wait = self.stop_time.duration_since(SystemTime::now()).unwrap_or(Duration::ZERO);
+        let duration_until_stop = max(Duration::ZERO, wait);
         self.stop_latch.register_join().recv_timeout(duration_until_stop).ok();
     }
 }

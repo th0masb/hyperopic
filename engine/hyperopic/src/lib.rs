@@ -117,7 +117,12 @@ pub struct ComputeMoveInput<E: SearchEndSignal + Clone> {
 }
 
 impl ComputeMoveInput<Instant> {
-    pub fn new(position: Position, remaining: Duration, inc: Duration, timing: TimeAllocator) -> Self {
+    pub fn new(
+        position: Position,
+        remaining: Duration,
+        inc: Duration,
+        timing: TimeAllocator,
+    ) -> Self {
         let position_count = position.history.len();
         ComputeMoveInput {
             position,

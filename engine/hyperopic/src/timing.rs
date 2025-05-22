@@ -2,8 +2,8 @@ use std::cmp::{max, min};
 use std::time::Duration;
 
 const DEFAULT_MIN_COMPUTE_TIME_MS: u64 = 50;
-const DEFAULT_INC_ONLY_THRESHOLD_MILLIS: u64 = 500;
-const DEFAULT_INC_USED_UNDER_THRESHOLD: f64 = 0.8;
+const DEFAULT_MIN_CLOCK_TIME_MILLIS: u64 = 250;
+const DEFAULT_LATENCY_MILLIS: u64 = 5;
 
 #[derive(Debug, Clone)]
 pub struct TimeAllocator {
@@ -11,25 +11,27 @@ pub struct TimeAllocator {
     /// still to play.
     half_moves_remaining: fn(usize) -> f64,
     /// Any time added to computing a move which is not spent thinking
-    pub latency: Duration,
-    pub min_compute_time: Duration,
-    pub increment_only_threshold: Duration,
-    pub inc_used_under_threshold: f64
+    latency: Duration,
+    min_compute_time: Duration,
+    min_clock_time: Duration,
 }
 
 impl Default for TimeAllocator {
     fn default() -> Self {
         TimeAllocator {
             half_moves_remaining: expected_half_moves_remaining,
-            latency: Duration::ZERO,
+            latency: Duration::from_millis(DEFAULT_LATENCY_MILLIS),
             min_compute_time: Duration::from_millis(DEFAULT_MIN_COMPUTE_TIME_MS),
-            increment_only_threshold: Duration::from_millis(DEFAULT_INC_ONLY_THRESHOLD_MILLIS),
-            inc_used_under_threshold: DEFAULT_INC_USED_UNDER_THRESHOLD,
+            min_clock_time: Duration::from_millis(DEFAULT_MIN_CLOCK_TIME_MILLIS),
         }
     }
 }
 
 impl TimeAllocator {
+    pub fn with_latency(latency: Duration) -> Self {
+        TimeAllocator { latency, ..Default::default() }
+    }
+
     // TODO Pass in position so we can reduce time thinking if there is a clear capture for example
     pub fn allocate(
         &self,
@@ -37,22 +39,23 @@ impl TimeAllocator {
         remaining_time: Duration,
         increment: Duration,
     ) -> Duration {
-        // Idea is if we are under some threshold left on the clock we will only use the increment
-        // time to think. We leave some of the inc on the table to try and gain some time back on
-        // the clock.
-        if remaining_time < self.increment_only_threshold && increment > Duration::ZERO {
-            let inc = increment - min(increment, self.latency);
-            let inc = inc.as_millis() as f64;
-            let inc = (inc * self.inc_used_under_threshold).round() as u64;
-            return max(self.min_compute_time, Duration::from_millis(inc));
-        }
-        let remaining_after_latency = remaining_time - min(remaining_time, self.latency);
-        // Divide by two because we need to think for half of the remaining moves
-        let exp_remaining = (self.half_moves_remaining)(half_moves_played) / 2f64;
-        let estimated_no_inc =
-            ((remaining_after_latency.as_millis() as f64) / exp_remaining).round() as u64;
-        let estimated = Duration::from_millis(estimated_no_inc) + increment;
-        max(estimated, self.min_compute_time)
+        let min_remaining_after_thinking = min(remaining_time, self.min_clock_time + self.latency);
+        let usable_thinking_time = remaining_time - min_remaining_after_thinking;
+
+        max(
+            self.min_compute_time,
+            if usable_thinking_time <= increment {
+                usable_thinking_time
+            } else {
+                // Otherwise we think for the increment and then a little more
+                let thinking_time_after_increment = usable_thinking_time - increment;
+                let exp_remaining = (self.half_moves_remaining)(half_moves_played) / 2f64;
+                let extra_time = ((thinking_time_after_increment.as_millis() as f64)
+                    / exp_remaining)
+                    .round() as u64;
+                increment + Duration::from_millis(extra_time)
+            },
+        )
     }
 }
 
@@ -78,11 +81,10 @@ mod test {
             half_moves_remaining: dummy_half_moves_remaining,
             min_compute_time: Duration::from_millis(500),
             latency: Duration::from_millis(200),
-            increment_only_threshold: Duration::from_millis(5000),
-            inc_used_under_threshold: 0.8
+            min_clock_time: Duration::from_millis(250),
         };
         assert_eq!(
-            Duration::from_millis(640),
+            Duration::from_millis(1355),
             timing.allocate(20, Duration::from_millis(4999), Duration::from_millis(1000))
         )
     }
@@ -93,8 +95,7 @@ mod test {
             half_moves_remaining: dummy_half_moves_remaining,
             min_compute_time: Duration::from_millis(1100),
             latency: Duration::from_millis(200),
-            increment_only_threshold: Duration::from_millis(100),
-            inc_used_under_threshold: 0.8
+            min_clock_time: Duration::from_millis(250),
         };
         assert_eq!(
             Duration::from_millis(1100),
@@ -108,12 +109,11 @@ mod test {
             half_moves_remaining: dummy_half_moves_remaining,
             min_compute_time: Duration::from_millis(1100),
             latency: Duration::from_millis(200),
-            increment_only_threshold: Duration::from_millis(100),
-            inc_used_under_threshold: 0.8
+            min_clock_time: Duration::from_millis(250),
         };
 
         assert_eq!(
-            Duration::from_millis(4979),
+            Duration::from_millis(4854),
             timing.allocate(20, Duration::from_millis(40000), Duration::from_millis(999))
         );
     }
@@ -124,8 +124,7 @@ mod test {
             half_moves_remaining: dummy_half_moves_remaining,
             min_compute_time: Duration::from_millis(1100),
             latency: Duration::from_millis(200),
-            increment_only_threshold: Duration::from_millis(100),
-            inc_used_under_threshold: 0.8
+            min_clock_time: Duration::from_millis(250),
         };
 
         assert_eq!(
@@ -140,13 +139,26 @@ mod test {
             half_moves_remaining: dummy_half_moves_remaining,
             min_compute_time: Duration::from_millis(100),
             latency: Duration::from_millis(200),
-            increment_only_threshold: Duration::from_millis(5000),
-            inc_used_under_threshold: 0.8
+            min_clock_time: Duration::from_millis(250),
         };
 
         assert_eq!(
-            Duration::from_millis(100),
+            Duration::from_millis(105),
             timing.allocate(200, Duration::from_secs(1), Duration::from_millis(100))
+        );
+    }
+
+    #[test]
+    fn increment_larger_than_remaining_time() {
+        let timing = TimeAllocator {
+            half_moves_remaining: dummy_half_moves_remaining,
+            min_compute_time: Duration::from_millis(50),
+            latency: Duration::from_millis(5),
+            min_clock_time: Duration::from_millis(250),
+        };
+        assert_eq!(
+            Duration::from_millis(749),
+            timing.allocate(224, Duration::from_millis(1004), Duration::from_millis(1000))
         );
     }
 }
