@@ -1,4 +1,4 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1.69-bullseye AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1.86-bookworm AS chef
 WORKDIR /build
 
 FROM chef AS planner
@@ -14,7 +14,7 @@ COPY . .
 ARG APP_NAME
 RUN cargo build --release --bin "$APP_NAME"
 
-FROM gcr.io/distroless/cc-debian11@sha256:9b8e0854865dcaf49470b4ec305df45957020fbcf17b71eeb50ffd3bc5bf885d
+FROM gcr.io/distroless/cc-debian12@sha256:c53c9416a1acdbfd6e09abba720442444a3d1a6338b8db850e5e198b59af5570
 WORKDIR /app
 ARG APP_NAME
 ARG APP_CONFIG
