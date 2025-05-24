@@ -62,16 +62,22 @@ export type BotConfig = {
                 pattern: string
             }[]
         }
-        eventLoop?: {
-            retryWaitDurationSecs: number
-            statusPollGapSecs: number
-            maxStreamLifeMins: number
-        }
         rateLimits: {
             challengeTable: { name: string }
             maxDailyChallenges: number
             maxDailyUserChallenges: number
             excluded?: string[]
+        }
+        eventLoop?: {
+            retryWaitDurationSecs: number
+            statusPollGapSecs: number
+            maxStreamLifeMins: number
+        }
+        timeConstraints?: {
+            minInitialTimeSecs: number,
+            maxInitialTimeSecs: number,
+            minIncrementSecs: number,
+            maxIncrementSecs: number,
         }
     }
 }
@@ -100,17 +106,18 @@ export const BotConfigValues: BotConfig[] = [
             },
             lichessBot: {
                 botId: "hyperopic",
-                userMatchers: [
-                    {
-                        include: true,
-                        pattern: "^th0masb$"
-                    }
-                ]
             },
             rateLimits: {
                 challengeTable: { name: "HyperopicChallenges" },
                 maxDailyChallenges: 100,
                 maxDailyUserChallenges: 5,
+                excluded: ["myopic-bot"]
+            },
+            timeConstraints: {
+                minInitialTimeSecs: 60,
+                maxInitialTimeSecs: 300,
+                minIncrementSecs: 0,
+                maxIncrementSecs: 30,
             }
         }
     },
@@ -132,12 +139,17 @@ export const BotConfigValues: BotConfig[] = [
             },
             lichessBot: {
                 botId: "myopic-bot",
+                userMatchers: [
+                    {
+                        include: true,
+                        pattern: "^th0masb$"
+                    }
+                ]
             },
             rateLimits: {
                 challengeTable: { name: "MyopicChallenges" },
                 maxDailyChallenges: 100,
                 maxDailyUserChallenges: 5,
-                excluded: ["hyperopic"]
             }
         }
     }
