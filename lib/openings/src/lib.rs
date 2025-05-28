@@ -37,7 +37,7 @@ impl TryFrom<OpeningTable> for DynamoOpeningClient {
 
 impl OpeningMoveFetcher for DynamoOpeningClient {
     fn lookup(&self, position_key: &str) -> Result<Vec<OpeningMoveRecord>> {
-        futures::executor::block_on(async {
+        tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(async {
             let index = position_key.to_string().split_whitespace().take(3).join(" ");
             info!("Querying table {} for position {}", self.params.name, index);
             self.client

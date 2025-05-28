@@ -3,13 +3,25 @@ use crate::search::end::EmptyEndSignal;
 use crate::search::{SearchOutcome, SearchParameters, TranspositionsImpl};
 use std::sync::Arc;
 
+const SEARCH_DEPTH: usize = 4;
+
 #[test]
 fn sanity_case() {
-    assert_move_better("1. d4 f5 2. Nc3 Nf6 3. Bg5 d5 4. Bxf6 exf6 5. e3 Be6", "f1e2", "c3d5", 3)
+    assert_move_better(
+        "1. d4 f5 2. Nc3 Nf6 3. Bg5 d5 4. Bxf6 exf6 5. e3 Be6",
+        "f1e2",
+        "c3d5",
+        SEARCH_DEPTH,
+    )
 }
 #[test]
 fn knight_avoid_rim_white() {
-    assert_move_better("1. d4 f5 2. Nc3 Nf6 3. Bg5 d5 4. Bxf6 exf6 5. e3 Be6", "g1f3", "g1h3", 3)
+    assert_move_better(
+        "1. d4 f5 2. Nc3 Nf6 3. Bg5 d5 4. Bxf6 exf6 5. e3 Be6",
+        "g1f3",
+        "g1h3",
+        SEARCH_DEPTH,
+    )
 }
 
 #[test]
@@ -18,18 +30,23 @@ fn knight_avoid_rim_black() {
         "1. d4 f5 2. Nc3 Nf6 3. Bg5 d5 4. Bxf6 exf6 5. e3 Be6 6. Nf3",
         "b8c6",
         "b8a6",
-        3,
+        SEARCH_DEPTH,
     )
 }
 
 #[test]
 fn development_preferred_0() {
-    assert_move_better("1. d4 f5 2. Nc3 Nf6 3. Bg5 d5 4. Bxf6 exf6 5. e3 Be6", "f1d3", "c3b5", 3)
+    assert_move_better(
+        "1. d4 f5 2. Nc3 Nf6 3. Bg5 d5 4. Bxf6 exf6 5. e3 Be6",
+        "f1d3",
+        "c3b5",
+        SEARCH_DEPTH,
+    )
 }
 
 #[test]
 fn development_preferred_1() {
-    assert_move_better("1. e4 e5", "g1f3", "d1e2", 3)
+    assert_move_better("1. e4 e5", "g1f3", "d1e2", SEARCH_DEPTH)
 }
 
 #[test]
@@ -38,7 +55,7 @@ fn promotion_eval_bug() {
         "1. d4 d5 2. e3 Nf6 3. c4 c6 4. Nc3 e6 5. Bd3 dxc4 6. Bxc4 b5 7. Be2 Bd6 8. e4 b4 9. e5 bxc3 10. exf6 O-O 11. fxg7",
         "f8e8",
         "c3b2",
-        4,
+        SEARCH_DEPTH,
     )
 }
 
