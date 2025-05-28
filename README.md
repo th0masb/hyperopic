@@ -1,10 +1,10 @@
-# hyperopic chess engine
+# Hyperopic chess engine
 
 ---
 
 ![Logo](assets/hyperopic-256.png)
 
-### overview
+### Overview
 
 This repository contains a mixture of libraries and applications which combine
 to form an amateur chess engine which is playable by anyone around the world at
@@ -25,7 +25,7 @@ available for challenging.
 
 ---
 
-### challenging the bot
+### Challenging the bot
 
 You need an account on lichess.org which is completely free and just requires an
 email address. To challenge Hyperopic to a game, visit its 
@@ -44,3 +44,23 @@ Some things to note about the parameters of the game:
 - A rate limit of 5 games per day per user is enforced
 
 [1]: https://lichess.org/@/Hyperopic
+
+---
+
+### Building the project
+
+Cargo is used as the build tool, you will require a rustc version >= 1.86.0. Hyperopic has a UCI compliant CLI interface
+which allows the bot to integrate with other existing applications. To build and test the project use the following 
+commands:
+
+```shell
+# Build all modules
+cargo build
+
+# Run all module tests
+cargo test
+
+# Build the UCI compliant CLi interface, the output binary will be at target/release/hyperopic-cli
+cargo build --bin hyperopic-cli --release
+```
+
