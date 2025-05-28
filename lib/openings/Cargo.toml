@@ -7,7 +7,7 @@ edition = "2024"
 
 [dependencies]
 hyperopic = { path = "../../engine/hyperopic" }
-futures = { version = "0.3.28", features = ["executor"] }
+tokio = "1.0"
 serde_derive = "1.0.163"
 serde = "1.0.163"
 log = "0.4.17"

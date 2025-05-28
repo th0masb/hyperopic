@@ -1,9 +1,10 @@
 use crate::board::iterator::BoardIterator;
-use crate::constants::boards::RANKS;
+use crate::constants::boards::{FILES, RANKS};
+use crate::constants::side::W;
 use crate::constants::{
     class, in_board, lift, piece_class, piece_side, side, square_file, square_rank,
 };
-use crate::{Board, Dir, Piece, SideMap, Square, SquareMap, SquareMatrix};
+use crate::{Board, Dir, Piece, Side, SideMap, Square, SquareMap, SquareMatrix};
 use lazy_static::lazy_static;
 use std::array;
 
@@ -40,6 +41,15 @@ pub fn control(piece: Piece, sq: Square, occupied: Board) -> Board {
         class::Q => bishop_control(sq, occupied) | rook_control(sq, occupied),
         class::K => CONTROL.king[sq],
         _ => panic!("{} is not a valid piece class", piece_class(piece)),
+    }
+}
+
+pub fn pawn_control(side: Side, pawns: Board) -> Board {
+    let (not_a_file, not_h_file) = (!FILES[7], !FILES[0]);
+    if side == W {
+        ((pawns & not_a_file) << 9) | ((pawns & not_h_file) << 7)
+    } else {
+        ((pawns & not_h_file) >> 9) | ((pawns & not_a_file) >> 7)
     }
 }
 

@@ -4,7 +4,7 @@ use crate::position::{Position, TerminalState};
 use crate::eval::material::{MaterialFacet, PieceValues};
 use crate::eval::{
     CastlingFacet, DevelopmentFacet, KnightRimFacet, PawnStructureFacet, PieceSquareTablesFacet,
-    SafetyFacet,
+    SafetyFacet, SpaceFacet,
 };
 use crate::moves::Move;
 use crate::phase::Phase;
@@ -147,9 +147,9 @@ impl From<Position> for TreeNode {
             moves.push(m)
         }
 
-        if board_clone == Position::default() {
+        if is_starting_position(&board_clone) {
             let mut eval = TreeNode {
-                position: Position::default(),
+                position: board_clone,
                 phase: Default::default(),
                 material: Default::default(),
                 facets: vec![
@@ -159,6 +159,7 @@ impl From<Position> for TreeNode {
                     Box::new(KnightRimFacet::default()),
                     Box::new(PawnStructureFacet::default()),
                     Box::new(SafetyFacet::default()),
+                    Box::new(SpaceFacet::default()),
                 ],
             };
             moves.into_iter().rev().for_each(|m| eval.make(m).unwrap());
@@ -171,11 +172,22 @@ impl From<Position> for TreeNode {
                     Box::new(PieceSquareTablesFacet::from(&board)),
                     Box::new(PawnStructureFacet::default()),
                     Box::new(SafetyFacet::default()),
+                    Box::new(SpaceFacet::default()),
                 ],
                 position: board,
             }
         }
     }
+}
+
+// Allow flipped positions where black starts the game
+fn is_starting_position(board: &Position) -> bool {
+    let real_start = Position::default();
+    board.side_boards == real_start.side_boards
+        && board.piece_boards == real_start.piece_boards
+        && board.clock == 0
+        && board.history.len() == 0
+        && board.castling_rights.iter().all(|c| *c)
 }
 
 #[cfg(test)]

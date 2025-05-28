@@ -412,17 +412,7 @@ impl Position {
             .map(|class| side * 6 + class)
             .flat_map(|p| iter(self.piece_boards[p]).map(move |sq| control(p, sq, occupied)))
             .fold(0u64, |a, n| a | n)
-            | pawn_control(side, self.piece_boards[if side == W { WP } else { BP }])
-    }
-}
-
-fn pawn_control(side: Side, pawns: Board) -> Board {
-    use crate::constants::boards::FILES;
-    let (not_a_file, not_h_file) = (!FILES[7], !FILES[0]);
-    if side == W {
-        ((pawns & not_a_file) << 9) | ((pawns & not_h_file) << 7)
-    } else {
-        ((pawns & not_h_file) >> 9) | ((pawns & not_a_file) >> 7)
+            | board::pawn_control(side, self.piece_boards[if side == W { WP } else { BP }])
     }
 }
 

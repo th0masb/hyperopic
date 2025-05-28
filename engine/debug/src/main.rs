@@ -6,7 +6,9 @@ use hyperopic::moves::Moves;
 use hyperopic::node::TreeNode;
 use hyperopic::position::Position;
 use hyperopic::search::end::EmptyEndSignal;
-use hyperopic::search::{NodeType, SearchParameters, TableEntry, Transpositions};
+use hyperopic::search::{
+    NodeType, SearchParameters, TableEntry, Transpositions, TranspositionsImpl,
+};
 
 #[derive(Parser)]
 struct Cli {
@@ -116,7 +118,7 @@ fn run_search(mut state: TreeNode, depth: usize, table_size: usize) {
             state,
             SearchParameters {
                 end_signal: EmptyEndSignal,
-                table: Arc::new(DebugTranspositions::new(table_size)),
+                table: Arc::new(TranspositionsImpl::new(table_size)),
                 max_depth: Some(depth as u8),
             },
         );

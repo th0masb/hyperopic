@@ -1559,7 +1559,6 @@ name = "openings"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "futures",
  "hyperopic",
  "itertools",
  "log",
@@ -1568,6 +1567,7 @@ dependencies = [
  "rusoto_dynamodb",
  "serde",
  "serde_derive",
+ "tokio",
 ]
 
 [[package]]
