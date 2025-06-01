@@ -11,7 +11,7 @@ use crate::node;
 use crate::node::TreeNode;
 use crate::position::TerminalState;
 
-const Q_CHECK_CAP: i32 = -1;
+const Q_CHECK_CAP: i32 = 0;
 const DELTA_SKIP_MARGIN: i32 = 200;
 const DELTA_SKIP_MAX_PHASE: f32 = 0.9;
 const SHALLOW_MOVE_FACETS: [MoveFacet; 3] = [Attacking, Checking, Promoting];
