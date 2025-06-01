@@ -111,7 +111,7 @@ fn to_table_id(pos: &Position) -> String {
 
 fn run_search(mut state: TreeNode, depth: usize, table_size: usize) {
     if depth == 0 {
-        println!("Static: {}", state.relative_eval());
+        println!("Relative eval: {}", state.relative_eval());
         println!("Quiescent: {}", hyperopic::search::quiescent::full_search(&mut state).unwrap());
     } else {
         let outcome = hyperopic::search::search(
