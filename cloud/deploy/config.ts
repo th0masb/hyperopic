@@ -85,6 +85,19 @@ export type BotConfig = {
 export type BotChallengerConfig = {
     ourUserId: string,
     token: string,
+    challengeSchedule?: {
+        schedule: string
+        payload: {
+            rated: boolean,
+            challengeCount: number,
+            sampleSize: number,
+            challengeHarderPercentage: number
+            timeLimitOptions: {
+                limit: number,
+                increment: number
+            }[]
+        }
+    }
 }
 
 export const BotConfigValues: BotConfig[] = [
@@ -94,6 +107,26 @@ export const BotConfigValues: BotConfig[] = [
         challengerConfig: {
             ourUserId: "hyperopic",
             token: process.env["HYPEROPIC_TOKEN"]!,
+            challengeSchedule: {
+                // On the hour every hour
+                schedule: "cron(0 * * * ? *)",
+                payload: {
+                    rated: true,
+                    challengeCount: 3,
+                    sampleSize: 20,
+                    challengeHarderPercentage: 30,
+                    timeLimitOptions: [
+                        {
+                            limit: 120,
+                            increment: 1
+                        },
+                        {
+                            limit: 60,
+                            increment: 3
+                        }
+                    ],
+                }
+            }
         },
         eventStreamConfig: {
             gameFunction: {
