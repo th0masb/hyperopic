@@ -11,6 +11,7 @@ use crate::node;
 use crate::node::TreeNode;
 use crate::position::TerminalState;
 
+// Depth to which we also consider checking moves for quiescent search, >= 0 means disabled
 const Q_CHECK_CAP: i32 = 0;
 const DELTA_SKIP_MARGIN: i32 = 200;
 const DELTA_SKIP_MAX_PHASE: f32 = 0.9;
