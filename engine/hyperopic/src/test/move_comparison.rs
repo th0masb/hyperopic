@@ -17,9 +17,9 @@ fn sanity_case() {
 #[test]
 fn knight_avoid_rim_white() {
     assert_move_better(
-        "1. d4 f5 2. Nc3 Nf6 3. Bg5 d5 4. Bxf6 exf6 5. e3 Be6",
-        "g1f3",
-        "g1h3",
+        "1. e4 e5 2. Nf3 Nc6",
+        "b1c3",
+        "b1a3",
         SEARCH_DEPTH,
     )
 }

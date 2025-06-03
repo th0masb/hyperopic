@@ -3,8 +3,7 @@ use crate::position::{Position, TerminalState};
 
 use crate::eval::material::{MaterialFacet, PieceValues};
 use crate::eval::{
-    CastlingFacet, DevelopmentFacet, KnightRimFacet, PawnStructureFacet, PieceSquareTablesFacet,
-    SafetyFacet, SpaceFacet,
+    CastlingFacet, PawnStructureFacet, PieceSquareTablesFacet, SafetyFacet, SpaceFacet,
 };
 use crate::moves::Move;
 use crate::phase::Phase;
@@ -155,8 +154,6 @@ impl From<Position> for TreeNode {
                 facets: vec![
                     Box::new(PieceSquareTablesFacet::default()),
                     Box::new(CastlingFacet::default()),
-                    Box::new(DevelopmentFacet::default()),
-                    Box::new(KnightRimFacet::default()),
                     Box::new(PawnStructureFacet::default()),
                     Box::new(SafetyFacet::default()),
                     Box::new(SpaceFacet::default()),

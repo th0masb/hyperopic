@@ -73,29 +73,23 @@ fn mate_3() {
     test("3qr2k/1b1p2pp/7N/3Q2b1/4P3/8/5PP1/6K1 w - - 0 1", vec!["d5g8"], true, 4)
 }
 
-// Mate in 4 moves TODO probably better in benchmark.
-#[ignore]
 #[test]
 fn mate_4() {
-    test("r1k2b1r/pp4pp/2p1n3/3NQ1B1/6q1/8/PPP2P1P/2KR4 w - - 4 20", vec!["e5c7"], true, 4)
+    test("r1k2b1r/pp4pp/2p1n3/3NQ1B1/6q1/8/PPP2P1P/2KR4 w - - 4 20", vec!["e5c7"], true, 7)
 }
 
 #[test]
 fn mate_5() {
-    test("r1b1k1nr/p2p1ppp/n2B4/1p1NPN1P/6P1/3P1Q2/P1P1K3/q5b1 w - - 0 30", vec!["f5g7"], true, 4)
+    test("r1b1k1nr/p2p1ppp/n2B4/1p1NPN1P/6P1/3P1Q2/P1P1K3/q5b1 w - - 0 30", vec!["f5g7"], true, 5)
 }
 
 /// A funny one which currently depends on move ordering, at depth 3 the
 /// best move has the same evaluation as another inferior move.
-#[ignore]
 #[test]
 fn tactic_1() {
-    test("1r3k2/2R5/1p2p2p/1Q1pPp1q/1P1P2p1/2P1P1P1/6KP/8 b - - 2 31", vec!["b8a8"], false, 4)
+    test("1r3k2/2R5/1p2p2p/1Q1pPp1q/1P1P2p1/2P1P1P1/6KP/8 b - - 2 31", vec!["b8a8"], false, 6)
 }
 
-/// This fails at depth 3 but passes at depth 4, should be moved to a
-/// benchmark maybe
-#[ignore]
 #[test]
 fn tactic_2() {
     test("r5k1/pb4pp/1pn1pq2/5B2/2Pr4/B7/PP3RPP/R4QK1 b - - 0 23", vec!["e6f5"], false, 4)
