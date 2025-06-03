@@ -9,18 +9,14 @@ pub struct UserConfig {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "type")]
-pub enum ChallengeEvent {
-    Specific { challenges: Vec<KnownUserChallenge> },
-    Random { time_limit_options: Vec<TimeLimits>, challenge_count: usize, rated: bool },
-}
-
-#[derive(Debug, Deserialize)]
-pub struct KnownUserChallenge {
-    #[serde(rename = "userId")]
-    pub user_id: String,
-    #[serde(rename = "timeLimits")]
-    pub time_limits: TimeLimits,
-    pub rated: bool,
-    pub repeat: usize,
+pub struct ChallengeEvent {
+    #[serde(rename = "timeLimitOptions")]
+    pub time_limit_options: Vec<TimeLimits>,
+    #[serde(rename = "challengeCount")]
+    pub challenge_count: u32,
+    #[serde(rename = "sampleSize")]
+    pub sample_size: u32,
+    #[serde(rename = "challengeHarderPercentage")]
+    pub challenge_harder_percentage: u32,
+    pub rated: bool
 }

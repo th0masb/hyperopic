@@ -1,17 +1,16 @@
-use crate::config::{ChallengeEvent, KnownUserChallenge, UserConfig};
+use crate::config::{ChallengeEvent, UserConfig};
 use itertools::Itertools;
-use lambda_runtime::{Error, LambdaEvent, service_fn};
+use lambda_runtime::{service_fn, Error, LambdaEvent};
+use log::info;
+use lichess_api::ratings::{ChallengeRequest, OnlineBot, TimeLimitType, UserDetailsGamePerf};
 use lichess_api::LichessClient;
-use lichess_api::ratings::{ChallengeRequest, TimeLimits};
-use rand::prelude::IndexedRandom;
+use rand::prelude::{IndexedRandom, IteratorRandom};
 use simple_logger::SimpleLogger;
-use std::iter::repeat;
-use std::time::Duration;
-use tokio::time::sleep;
 
 mod config;
 
 const APP_CONFIG_VAR: &str = "APP_CONFIG";
+const DEFAULT_RATING: u32 = 1750;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -21,95 +20,113 @@ async fn main() -> Result<(), Error> {
 
 async fn game_handler(event: LambdaEvent<ChallengeEvent>) -> Result<(), Error> {
     let config: UserConfig = serde_json::from_str(std::env::var(APP_CONFIG_VAR)?.as_str())?;
-    match event.payload {
-        ChallengeEvent::Specific { challenges } => {
-            specific_challenge_handler(&config, challenges).await
-        }
-        ChallengeEvent::Random { time_limit_options, challenge_count, rated } => {
-            random_challenge_handler(&config, time_limit_options, challenge_count, rated).await
-        }
-    }
+    random_challenge_handler(&config, event.payload).await
 }
 
-async fn specific_challenge_handler(
-    config: &UserConfig,
-    challenges: Vec<KnownUserChallenge>,
-) -> Result<(), Error> {
-    let client = LichessClient::new(config.token.clone());
-    for challenge in challenges {
-        let target_id = challenge.user_id.as_str();
-        let request = ChallengeRequest {
-            rated: challenge.rated,
-            time_limit: challenge.time_limits.clone(),
-            target_user_id: target_id.to_string(),
-        };
-        for r in repeat(request).take(challenge.repeat) {
-            let (status, _) = client.create_challenge(r).await?;
-            if status.is_success() {
-                log::info!("Successfully created challenge for {}", target_id);
-            } else {
-                log::error!("Status {} for challenge creation for {}", status, target_id);
-            }
-            sleep(Duration::from_secs(3)).await;
-        }
-    }
-    Ok(())
-}
-
-async fn random_challenge_handler(
-    config: &UserConfig,
-    time_limit_options: Vec<TimeLimits>,
-    challenge_count: usize,
-    rated: bool,
-) -> Result<(), Error> {
-    let chosen_time_limit =
-        time_limit_options.choose(&mut rand::rng()).expect("No time limit options given!");
+async fn random_challenge_handler(config: &UserConfig, event: ChallengeEvent) -> Result<(), Error> {
+    let mut rng = rand::rng();
+    let time_limit =
+        event.time_limit_options.choose(&mut rng).expect("No time limit options given!");
 
     let client = LichessClient::new(config.token.clone());
 
     let our_rating = client
-        .fetch_rating(config.our_user_id.as_str(), chosen_time_limit.get_type())
+        .fetch_rating(config.our_user_id.as_str(), time_limit.get_type())
         .await?
-        .unwrap();
+        .unwrap_or(UserDetailsGamePerf { rating: DEFAULT_RATING, prov: None });
 
+    info!("Our Rating: {}", our_rating.rating);
+
+    let time_limit_type = time_limit.get_type();
     let mut bots = client
         .fetch_online_bots()
         .await?
         .into_iter()
-        .filter(|b| b.id != config.our_user_id)
+        .filter(|bot| bot.id != config.our_user_id)
+        .filter(|bot| is_serious_bot(bot, time_limit_type))
         .collect_vec();
 
-    bots.sort_by_key(|bot| bot.perfs.rating_for(chosen_time_limit.get_type()).unwrap().rating);
+    info!("Found {} online bots", bots.len());
 
-    let lower_count = (challenge_count * 3) / 4;
-    let upper_count = challenge_count - lower_count;
+    bots.sort_by_key(|bot| bot.perfs.rating_for(time_limit_type).unwrap().rating);
+
+    let ChallengeSplit { easier_count, harder_count } = compute_challenge_split(&event);
 
     let mut opponents = bots
         .iter()
-        .filter(|b| {
-            b.perfs.rating_for(chosen_time_limit.get_type()).unwrap().rating <= our_rating.rating
-        })
+        .filter(|b| b.perfs.rating_for(time_limit_type).unwrap().rating <= our_rating.rating)
         .rev()
-        .take(lower_count)
-        .collect::<Vec<_>>();
+        .take(easier_count as usize)
+        .cloned()
+        .collect_vec();
 
     opponents.extend(
         bots.iter()
-            .filter(|b| {
-                b.perfs.rating_for(chosen_time_limit.get_type()).unwrap().rating > our_rating.rating
-            })
-            .take(upper_count),
+            .filter(|b| b.perfs.rating_for(time_limit_type).unwrap().rating > our_rating.rating)
+            .take(harder_count as usize)
+            .cloned(),
     );
 
-    for opponent in opponents {
+    let candidate_names = opponents.iter().map(|bot| bot.id.clone()).collect_vec();
+    info!("Choosing opponents from {:?}", candidate_names);
+    let chosen = opponents.iter().choose_multiple(&mut rng, event.challenge_count as usize);
+    let chosen_names = chosen.iter().map(|bot| bot.id.clone()).collect_vec();
+    info!("Chose opponents {:?}", chosen_names);
+
+    for opponent in chosen {
         let (status, _) = client
             .create_challenge(ChallengeRequest {
-                rated,
-                time_limit: chosen_time_limit.clone(),
+                rated: event.rated,
+                time_limit: time_limit.clone(),
                 target_user_id: opponent.id.clone(),
             })
             .await?;
-        log::info!("Response {} for challenge to {}", status, opponent.id.as_str());
+        info!("Response {} for challenge to {}", status, opponent.id.as_str());
     }
     Ok(())
+}
+
+fn is_serious_bot(bot: &OnlineBot, time_limit_type: TimeLimitType) -> bool {
+    matches!(
+        bot.perfs.rating_for(time_limit_type), 
+        Some(UserDetailsGamePerf { prov: None, .. })
+    )
+}
+
+#[derive(Debug, PartialEq, Clone)]
+struct ChallengeSplit {
+    pub easier_count: u32,
+    pub harder_count: u32,
+}
+
+fn compute_challenge_split(event: &ChallengeEvent) -> ChallengeSplit {
+    let harder_count = (event.sample_size as f64
+        * (event.challenge_harder_percentage as f64 / 100.0))
+        .round() as u32;
+
+    ChallengeSplit {
+        harder_count,
+        easier_count: event.sample_size - harder_count
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::config::ChallengeEvent;
+    use super::{compute_challenge_split, ChallengeSplit};
+
+    #[test]
+    fn challenge_split() {
+        let event = ChallengeEvent {
+            time_limit_options: vec![],
+            challenge_count: 10,
+            sample_size: 20,
+            challenge_harder_percentage: 10,
+            rated: false,
+        };
+        assert_eq!(
+            ChallengeSplit { easier_count: 18, harder_count: 2 },
+            compute_challenge_split(&event)
+        )
+    }
 }
