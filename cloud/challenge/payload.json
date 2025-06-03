@@ -1,0 +1,7 @@
+{
+  "timeLimitOptions": [{"limit": 120,"increment": 1}],
+  "rated": true,
+  "challengeCount": 3,
+  "sampleSize": 20,
+  "challengeHarderPercentage": 10
+}
