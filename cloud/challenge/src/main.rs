@@ -1,9 +1,9 @@
 use crate::config::{ChallengeEvent, UserConfig};
 use itertools::Itertools;
-use lambda_runtime::{service_fn, Error, LambdaEvent};
-use log::info;
-use lichess_api::ratings::{ChallengeRequest, OnlineBot, TimeLimitType, UserDetailsGamePerf};
+use lambda_runtime::{Error, LambdaEvent, service_fn};
 use lichess_api::LichessClient;
+use lichess_api::ratings::{ChallengeRequest, OnlineBot, TimeLimitType, UserDetailsGamePerf};
+use log::info;
 use rand::prelude::{IndexedRandom, IteratorRandom};
 use simple_logger::SimpleLogger;
 
@@ -87,10 +87,7 @@ async fn random_challenge_handler(config: &UserConfig, event: ChallengeEvent) ->
 }
 
 fn is_serious_bot(bot: &OnlineBot, time_limit_type: TimeLimitType) -> bool {
-    matches!(
-        bot.perfs.rating_for(time_limit_type), 
-        Some(UserDetailsGamePerf { prov: None, .. })
-    )
+    matches!(bot.perfs.rating_for(time_limit_type), Some(UserDetailsGamePerf { prov: None, .. }))
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -104,16 +101,13 @@ fn compute_challenge_split(event: &ChallengeEvent) -> ChallengeSplit {
         * (event.challenge_harder_percentage as f64 / 100.0))
         .round() as u32;
 
-    ChallengeSplit {
-        harder_count,
-        easier_count: event.sample_size - harder_count
-    }
+    ChallengeSplit { harder_count, easier_count: event.sample_size - harder_count }
 }
 
 #[cfg(test)]
 mod test {
+    use super::{ChallengeSplit, compute_challenge_split};
     use crate::config::ChallengeEvent;
-    use super::{compute_challenge_split, ChallengeSplit};
 
     #[test]
     fn challenge_split() {

@@ -18,5 +18,5 @@ pub struct ChallengeEvent {
     pub sample_size: u32,
     #[serde(rename = "challengeHarderPercentage")]
     pub challenge_harder_percentage: u32,
-    pub rated: bool
+    pub rated: bool,
 }

@@ -1,8 +1,7 @@
-use MoveFacet::{Attacking, Checking, Promoting};
-use std::cmp;
-
 use Move::Null;
+use MoveFacet::{Attacking, Checking, Promoting};
 use anyhow::Result;
+use std::cmp::{max, min};
 
 use crate::constants::{class, piece_class};
 use crate::moves::Move::{Castle, Enpassant, Normal, Promote};
@@ -32,8 +31,8 @@ fn search_impl(node: &mut TreeNode, mut alpha: i32, beta: i32, depth: i32) -> Re
     // We know the start node not terminal otherwise wouldn't have entered the quiescent search
     if depth != -1 {
         match node.position().compute_terminal_state() {
-            Some(TerminalState::Loss) => return Ok(node::LOSS_VALUE),
-            Some(TerminalState::Draw) => return Ok(node::DRAW_VALUE),
+            Some(TerminalState::Loss) => return Ok(max(alpha, min(beta, node::LOSS_VALUE))),
+            Some(TerminalState::Draw) => return Ok(max(alpha, min(beta, node::DRAW_VALUE))),
             _ => {}
         }
     }
@@ -77,8 +76,8 @@ fn search_impl(node: &mut TreeNode, mut alpha: i32, beta: i32, depth: i32) -> Re
         node.make(m)?;
         let next_result = -search_impl(node, -beta, -alpha, depth - 1)?;
         node.unmake()?;
-        result = cmp::max(result, next_result);
-        alpha = cmp::max(alpha, result);
+        result = max(result, next_result);
+        alpha = max(alpha, result);
         if alpha > beta {
             return Ok(beta);
         }

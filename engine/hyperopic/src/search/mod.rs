@@ -128,7 +128,7 @@ impl<E: SearchEndSignal + Clone, T: Transpositions> Search<E, T> {
         let mut pv = PrincipleVariation::default();
         let mut best_response = None;
         for i in 1..=self.max_depth {
-            match self.best_move(i, search_start, &pv) {
+            match self.best_move(i, &pv) {
                 Err(message) => {
                     break_err = anyhow!("{}", message);
                     break;
@@ -154,12 +154,7 @@ impl<E: SearchEndSignal + Clone, T: Transpositions> Search<E, T> {
         })
     }
 
-    fn best_move(
-        &mut self,
-        depth: u8,
-        search_start: Instant,
-        pv: &PrincipleVariation,
-    ) -> Result<BestMoveResponse> {
+    fn best_move(&mut self, depth: u8, pv: &PrincipleVariation) -> Result<BestMoveResponse> {
         if depth < 1 {
             return Err(anyhow!("Cannot iteratively deepen with depth 0"));
         }
@@ -176,12 +171,12 @@ impl<E: SearchEndSignal + Clone, T: Transpositions> Search<E, T> {
             &mut self.node,
             Context {
                 depth,
-                start: search_start,
                 alpha: -node::INFTY,
                 beta: node::INFTY,
                 precursors: vec![],
                 known_raise_alpha: None,
                 root_index,
+                null_move_last: false,
             },
         )?;
 
