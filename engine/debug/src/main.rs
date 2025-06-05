@@ -1,14 +1,12 @@
 use clap::{Parser, Subcommand};
 use itertools::Itertools;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use hyperopic::moves::Moves;
 use hyperopic::node::TreeNode;
 use hyperopic::position::Position;
 use hyperopic::search::end::EmptyEndSignal;
-use hyperopic::search::{
-    NodeType, SearchParameters, TableEntry, Transpositions, TranspositionsImpl,
-};
+use hyperopic::search::{NodeType, SearchParameters, TableEntry, Transpositions};
 
 #[derive(Parser)]
 struct Cli {
@@ -58,19 +56,19 @@ fn main() {
 }
 
 struct DebugTranspositions {
-    store: Vec<Option<(String, TableEntry)>>,
+    store: Vec<Mutex<Option<(String, TableEntry)>>>,
 }
 
 impl DebugTranspositions {
     pub fn new(size: usize) -> DebugTranspositions {
-        DebugTranspositions { store: vec![None; size] }
+        DebugTranspositions { store: Vec::from_iter((0..size).map(|_| Mutex::new(None))) }
     }
 }
 
 impl Transpositions for DebugTranspositions {
     fn get(&self, pos: &Position) -> Option<Arc<TableEntry>> {
         let index = (pos.key % self.store.len() as u64) as usize;
-        if let Some((existing, n)) = self.store[index].as_ref() {
+        if let Some((existing, n)) = self.store[index].lock().unwrap().as_ref() {
             if n.key == pos.key {
                 let new_pos = to_table_id(&pos);
                 if existing.as_str() != new_pos.as_str() {
@@ -86,7 +84,7 @@ impl Transpositions for DebugTranspositions {
     }
 
     fn put(&self, pos: &Position, root_index: u16, depth: u8, eval: i32, node_type: NodeType) {
-        let _index = (pos.key % self.store.len() as u64) as usize;
+        let index = (pos.key % self.store.len() as u64) as usize;
         let m = match &node_type {
             NodeType::Pv(path) => path.first().unwrap(),
             NodeType::Cut(m) => m,
@@ -95,9 +93,8 @@ impl Transpositions for DebugTranspositions {
         if !pos.moves(&Moves::All).contains(m) {
             panic!("Bad node {} <-> {:?}", pos.to_string(), node_type)
         }
-        let _entry = TableEntry { key: pos.key, root_index, depth, eval, node_type };
-        //self.store[index] = Some((to_table_id(&pos), entry))
-        panic!("Do me")
+        let entry = TableEntry { key: pos.key, root_index, depth, eval, node_type };
+        *self.store[index].lock().unwrap() = Some((to_table_id(&pos), entry));
     }
 
     fn reset(&self) {
@@ -118,7 +115,7 @@ fn run_search(mut state: TreeNode, depth: usize, table_size: usize) {
             state,
             SearchParameters {
                 end_signal: EmptyEndSignal,
-                table: Arc::new(TranspositionsImpl::new(table_size)),
+                table: Arc::new(DebugTranspositions::new(table_size)),
                 max_depth: Some(depth as u8),
             },
         );

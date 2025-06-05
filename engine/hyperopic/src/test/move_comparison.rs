@@ -16,12 +16,7 @@ fn sanity_case() {
 }
 #[test]
 fn knight_avoid_rim_white() {
-    assert_move_better(
-        "1. e4 e5 2. Nf3 Nc6",
-        "b1c3",
-        "b1a3",
-        SEARCH_DEPTH,
-    )
+    assert_move_better("1. e4 e5 2. Nf3 Nc6", "b1c3", "b1a3", SEARCH_DEPTH)
 }
 
 #[test]

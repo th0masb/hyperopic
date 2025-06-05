@@ -87,7 +87,7 @@ fn mate_5() {
 /// best move has the same evaluation as another inferior move.
 #[test]
 fn tactic_1() {
-    test("1r3k2/2R5/1p2p2p/1Q1pPp1q/1P1P2p1/2P1P1P1/6KP/8 b - - 2 31", vec!["b8a8"], false, 6)
+    test("1r3k2/2R5/1p2p2p/1Q1pPp1q/1P1P2p1/2P1P1P1/6KP/8 b - - 2 31", vec!["b8a8"], false, 10)
 }
 
 #[test]

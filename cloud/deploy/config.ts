@@ -150,7 +150,7 @@ export const BotConfigValues: BotConfig[] = [
                 minInitialTimeSecs: 60,
                 maxInitialTimeSecs: 300,
                 minIncrementSecs: 0,
-                maxIncrementSecs: 30,
+                maxIncrementSecs: 5,
             }
         }
     },

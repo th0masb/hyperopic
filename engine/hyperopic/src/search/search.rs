@@ -2,13 +2,12 @@ use NodeType::{All, Cut, Pv};
 use anyhow::{Result, anyhow};
 use std::cmp::{max, min};
 use std::sync::Arc;
-use std::time::Instant;
 
 use crate::board::board_moves;
 use crate::constants::{class, create_piece, in_board};
 use crate::moves::Move;
 use crate::node;
-use crate::node::TreeNode;
+use crate::node::{INFTY, TreeNode};
 use crate::position::{CASTLING_DETAILS, TerminalState};
 use crate::search::end::SearchEndSignal;
 use crate::search::moves::{MoveGenerator, SearchMove};
@@ -17,17 +16,20 @@ use crate::search::quiescent;
 use crate::search::table::{NodeType, Transpositions};
 
 const END_CHECK_FREQ: u32 = 1000;
+// Better results compared to reduction of 3 or 4
+const MIN_NULL_MOVE_REDUCTION: u8 = 5;
 
 /// Provides relevant callstack information for the search to
 /// use during the traversal of the tree.
+#[derive(Debug)]
 pub struct Context {
-    pub start: Instant,
     pub root_index: u16,
     pub alpha: i32,
     pub beta: i32,
     pub depth: u8,
     pub precursors: Vec<Move>,
     pub known_raise_alpha: Option<Move>,
+    pub null_move_last: bool,
 }
 
 impl Context {
@@ -35,13 +37,13 @@ impl Context {
         let mut next_precursors = self.precursors.clone();
         next_precursors.push(m.clone());
         Context {
-            start: self.start,
             alpha,
             beta,
             depth: self.depth - min(r, self.depth),
             root_index: self.root_index,
             precursors: next_precursors,
             known_raise_alpha: None,
+            null_move_last: matches!(m, Move::Null),
         }
     }
 }
@@ -91,8 +93,8 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
         let terminal_state = node.position().compute_terminal_state();
         if ctx.depth == 0 || terminal_state.is_some() {
             return match terminal_state {
-                Some(TerminalState::Loss) => Ok(node::LOSS_VALUE),
-                Some(TerminalState::Draw) => Ok(node::DRAW_VALUE),
+                Some(TerminalState::Loss) => Ok(max(ctx.alpha, min(ctx.beta, node::LOSS_VALUE))),
+                Some(TerminalState::Draw) => Ok(max(ctx.alpha, min(ctx.beta, node::DRAW_VALUE))),
                 None => quiescent::search(node, ctx.alpha, ctx.beta),
             }
             .map(|eval| SearchResponse { eval, path: vec![] });
@@ -105,28 +107,32 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
         };
 
         let in_pvs = self.pv.in_pv(ctx.precursors.as_slice());
+        let in_check = node.position().in_check();
+        let is_pv_node = ctx.alpha == -INFTY
+            || in_pvs
+            || ctx.known_raise_alpha.is_some()
+            || matches!(table_entry, Some(Pv(_)));
 
-        if !in_pvs && should_try_null_move_pruning(node, &ctx) {
+        if !is_pv_node && !ctx.null_move_last && should_try_null_move_pruning(node) {
+            // Idea is if we make no move and still cause a cutoff it is highly likely there is some
+            // move we can make which will also cause a cutoff
             node.make(Move::Null)?;
-            let score = -self.search(node, ctx.next(-ctx.beta, -ctx.alpha, &Move::Null, 3))?;
+            let r = max(MIN_NULL_MOVE_REDUCTION, ctx.depth / 3);
+            let score = -self.search(node, ctx.next(-ctx.beta, -ctx.beta + 1, &Move::Null, r))?;
             node.unmake()?;
-            if score.eval > ctx.beta {
+            if score.eval >= ctx.beta {
                 return Ok(SearchResponse { eval: ctx.beta, path: vec![] });
             }
         }
 
         let mvs = self.generate_moves(node, &ctx, &table_entry);
         let start_alpha = ctx.alpha;
-        let in_check = node.position().in_check();
-        let is_pv_node = in_pvs
-            || ctx.known_raise_alpha.is_some()
-            || matches!(table_entry, Some(NodeType::Pv(_)));
 
         let mut i = 0;
         let mut research = false;
         let mut best_path = vec![];
         let mut raised_alpha = false;
-        let mut score = -node::INFTY;
+        let mut score = -INFTY;
 
         while i < mvs.len() {
             let sm = &mvs[i];
@@ -335,12 +341,12 @@ fn is_pseudo_legal(node: &TreeNode, m: &Move) -> bool {
     }
 }
 
-fn should_try_null_move_pruning(node: &TreeNode, ctx: &Context) -> bool {
+fn should_try_null_move_pruning(node: &TreeNode) -> bool {
     let position = node.position();
-    ctx.depth < 5 && ctx.beta < 1000 && !position.in_check() && {
+    !position.in_check() && {
         let active = position.active;
         let pawns = position.piece_boards[create_piece(active, class::P)];
         let others = position.side_boards[active] & !pawns;
-        pawns.count_ones() > 2 && others.count_ones() > 1 || others.count_ones() > 2
+        pawns.count_ones() > 2 && others.count_ones() > 1
     }
 }
