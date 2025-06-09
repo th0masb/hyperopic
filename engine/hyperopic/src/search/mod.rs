@@ -13,7 +13,7 @@ use crate::node::TreeNode;
 use crate::search::moves::MoveGenerator;
 use crate::search::pv::PrincipleVariation;
 use crate::search::search::{Context, SearchResponse, TreeSearcher};
-pub use crate::search::table::{NodeType, TableEntry, Transpositions, TranspositionsImpl};
+pub use crate::search::table::{NodeType, TableEntry, Transpositions, ConcurrentTT};
 
 pub mod end;
 mod moves;

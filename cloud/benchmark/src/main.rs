@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use hyperopic::search::end::EmptyEndSignal;
-use hyperopic::search::{SearchParameters, TranspositionsImpl};
+use hyperopic::search::{SearchParameters, ConcurrentTT};
 use itertools::Itertools;
 use lambda_payloads::benchmark::*;
 use lambda_runtime::{Context, Error, LambdaEvent, service_fn};
@@ -54,7 +54,7 @@ async fn handler(event: LambdaEvent<BenchStartEvent>) -> Result<BenchOutput, Err
             position.into(),
             SearchParameters {
                 end_signal: EmptyEndSignal,
-                table: Arc::new(TranspositionsImpl::new(e.table_size)),
+                table: Arc::new(ConcurrentTT::new(e.table_size)),
                 max_depth: Some(e.depth as u8),
             },
         )?;

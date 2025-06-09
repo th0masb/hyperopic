@@ -113,6 +113,7 @@ impl MoveChooser for MoveLambdaClient {
         let request = ChooseMoveEvent {
             moves_played: moves_played.to_owned(),
             features: vec![],
+            table_size: None,
             clock_millis: ChooseMoveEventClock {
                 increment: increment.as_millis() as u64,
                 remaining: remaining.as_millis() as u64,

@@ -2,7 +2,7 @@ use crate::moves::Move;
 use crate::node::TreeNode;
 use crate::position::Position;
 use crate::search::end::EmptyEndSignal;
-use crate::search::{SearchParameters, TranspositionsImpl};
+use crate::search::{SearchParameters, ConcurrentTT};
 use crate::{Symmetric, node};
 use std::sync::Arc;
 
@@ -22,7 +22,7 @@ fn test(position: &str, expected_move_pool: Vec<&str>, is_won: bool, depth: usiz
 }
 
 fn test_impl(board: TreeNode, expected_move_pool: Vec<Move>, is_won: bool, depth: usize) {
-    let table = TranspositionsImpl::new(TABLE_SIZE);
+    let table = ConcurrentTT::new(TABLE_SIZE);
     let params = SearchParameters {
         end_signal: EmptyEndSignal,
         table: Arc::new(table),
