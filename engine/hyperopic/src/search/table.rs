@@ -1,7 +1,6 @@
 use crate::moves::Move;
 use crate::position::Position;
 use std::sync::{Arc, Mutex};
-use NodeType::Pv;
 
 pub trait Transpositions {
     fn get(&self, pos: &Position) -> Option<Arc<TableEntry>>;
