@@ -140,16 +140,16 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
 
             // The depth reduction we will search the move with
             let mut r = 1;
-            if !research && ctx.depth > 2 && !in_check && !sm.is_tactical() {
+            if !research && ctx.depth > 1 && !in_check && !sm.is_tactical() {
                 if is_pv_node {
-                    if i > 6 {
+                    if i > 5 {
                         r += 1
                     }
                 } else {
                     match i {
                         0 => {}
-                        1..=6 => r += 1,
-                        _ => r += ctx.depth / 3,
+                        1..3 => r += 1,
+                        _ => r += max(1, ctx.depth / 3),
                     }
                 }
             }
@@ -161,6 +161,7 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
                 // Search with null window under the assumption that the
                 // previous moves are better than this
                 let null = -self.search(node, ctx.next(-ctx.alpha - 1, -ctx.alpha, &m, r))?;
+                // null in [a, a+1]
                 // If there is some move which can raise alpha
                 if score < null.eval {
                     // Then this was actually a better move and so we must
