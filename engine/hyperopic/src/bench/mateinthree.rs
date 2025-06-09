@@ -10,7 +10,7 @@ use crate::node::{TreeNode, WIN_VALUE};
 use crate::position::Position;
 use crate::search::end::EmptyEndSignal;
 use crate::search::{SearchParameters, search};
-use crate::{Move, TranspositionsImpl};
+use crate::{Move, ConcurrentTT};
 
 #[rustfmt::skip]
 ///
@@ -145,7 +145,7 @@ fn benchmark() {
             print_progress(case_count, err_count, search_duration.clone());
         }
         let board_fen = test_case.eval.position().to_string();
-        let params = SearchParameters {end_signal: EmptyEndSignal, table: Arc::new(TranspositionsImpl::new(table_size)), max_depth: Some(depth as u8) };
+        let params = SearchParameters {end_signal: EmptyEndSignal, table: Arc::new(ConcurrentTT::new(table_size)), max_depth: Some(depth as u8) };
         match search(test_case.eval, params) {
             Err(message) => panic!("{}", message),
             Ok(outcome) => {

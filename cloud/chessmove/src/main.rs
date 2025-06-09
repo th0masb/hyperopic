@@ -1,11 +1,12 @@
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use lambda_runtime::{Error, LambdaEvent, service_fn};
 use log;
 use simple_logger::SimpleLogger;
 
 use anyhow::anyhow;
+use log::info;
 use hyperopic::openings::OpeningService;
 use hyperopic::position::Position;
 use hyperopic::timing::TimeAllocator;
@@ -14,7 +15,7 @@ use lambda_payloads::chessmove::*;
 use lichess_api::LichessEndgameClient;
 use openings::{DynamoOpeningClient, OpeningTable};
 
-const TABLE_SIZE: usize = 10000;
+const DEFAULT_TABLE_SIZE: usize = 2_500_000;
 const LATENCY_MILLIS: u64 = 200;
 const TABLE_ENV_KEY: &'static str = "APP_CONFIG";
 
@@ -26,15 +27,19 @@ async fn main() -> Result<(), Error> {
 }
 
 async fn move_handler(event: LambdaEvent<ChooseMoveEvent>) -> Result<ChooseMoveOutput, Error> {
+    let setup_start = Instant::now();
     let choose_move = &event.payload;
     let position = choose_move.moves_played.parse::<Position>()?;
-    let engine = Engine::new(TABLE_SIZE, load_lookup_services(&choose_move.features));
+    let table_size = choose_move.table_size.unwrap_or(DEFAULT_TABLE_SIZE);
+    let engine = Engine::new(table_size, load_lookup_services(&choose_move.features));
     let input = ComputeMoveInput::new(
         position,
         Duration::from_millis(choose_move.clock_millis.remaining),
         Duration::from_millis(choose_move.clock_millis.increment),
         TimeAllocator::with_latency(Duration::from_millis(LATENCY_MILLIS)),
     );
+    let setup_duration = setup_start.elapsed();
+    info!("Setup time: {}ms", setup_duration.as_millis());
     let output = engine.compute_move(input)?;
     Ok(ChooseMoveOutput {
         best_move: output.best_move.to_string(),
