@@ -1,6 +1,6 @@
 use crate::position::Position;
 use crate::search::end::EmptyEndSignal;
-use crate::search::{SearchOutcome, SearchParameters, TranspositionsImpl};
+use crate::search::{SearchOutcome, SearchParameters, ConcurrentTT};
 use std::sync::Arc;
 
 const SEARCH_DEPTH: usize = 4;
@@ -87,7 +87,7 @@ fn search_after_move(pgn: &str, mv: &str, depth: usize) -> SearchOutcome {
         board.into(),
         SearchParameters {
             end_signal: EmptyEndSignal,
-            table: Arc::new(TranspositionsImpl::new(TABLE_SIZE)),
+            table: Arc::new(ConcurrentTT::new(TABLE_SIZE)),
             max_depth: Some(depth as u8),
         },
     )

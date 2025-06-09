@@ -1,4 +1,4 @@
-use crate::TranspositionsImpl;
+use crate::ConcurrentTT;
 use crate::position::Position;
 use crate::search::SearchParameters;
 use crate::search::end::EmptyEndSignal;
@@ -81,7 +81,7 @@ fn benchmark() -> Result<(), Box<dyn Error>> {
         }
         best_moves.push(crate::search::search(position.into(), SearchParameters {
             end_signal: EmptyEndSignal,
-            table: Arc::new(TranspositionsImpl::new(table_size)),
+            table: Arc::new(ConcurrentTT::new(table_size)),
             max_depth: Some(depth as u8),
         })?)
     }

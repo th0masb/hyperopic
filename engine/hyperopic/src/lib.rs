@@ -2,7 +2,7 @@ use crate::moves::Move;
 use crate::node::TreeNode;
 use crate::position::Position;
 use crate::search::end::SearchEndSignal;
-use crate::search::{SearchOutcome, SearchParameters, Transpositions, TranspositionsImpl};
+use crate::search::{SearchOutcome, SearchParameters, Transpositions, ConcurrentTT};
 use crate::timing::TimeAllocator;
 use Ordering::SeqCst;
 use anyhow::{Result, anyhow};
@@ -140,7 +140,7 @@ pub struct ComputeMoveOutput {
 }
 
 pub struct Engine {
-    transpositions: Arc<TranspositionsImpl>,
+    transpositions: Arc<ConcurrentTT>,
     lookups: Vec<Arc<dyn LookupMoveService + Send + Sync>>,
     threads: ThreadPool,
     /// Flag ensuring at most one operation runs at any time
@@ -153,7 +153,7 @@ impl Engine {
         lookups: Vec<Arc<dyn LookupMoveService + Send + Sync>>,
     ) -> Engine {
         Engine {
-            transpositions: Arc::new(TranspositionsImpl::new(table_size)),
+            transpositions: Arc::new(ConcurrentTT::new(table_size)),
             lookups,
             threads: ThreadPool::new(1),
             available: Arc::new(AtomicBool::new(true)),

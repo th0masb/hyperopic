@@ -15,7 +15,7 @@ use lambda_payloads::chessmove::*;
 use lichess_api::LichessEndgameClient;
 use openings::{DynamoOpeningClient, OpeningTable};
 
-const DEFAULT_TABLE_SIZE: usize = 10000;
+const DEFAULT_TABLE_SIZE: usize = 2_500_000;
 const LATENCY_MILLIS: u64 = 200;
 const TABLE_ENV_KEY: &'static str = "APP_CONFIG";
 
