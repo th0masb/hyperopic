@@ -8,6 +8,8 @@ pub struct ChooseMoveEvent {
     pub clock_millis: ChooseMoveEventClock,
     #[serde(default = "default_features")]
     pub features: Vec<ChooseMoveFeature>,
+    #[serde(rename = "tableSize", default)]
+    pub table_size: Option<usize>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]

@@ -3,5 +3,6 @@
   "clockMillis": {
     "increment": 1000,
     "remaining": 60890
-  }
+  },
+  "tableSize": 5000000
 }
