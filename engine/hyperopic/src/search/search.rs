@@ -140,16 +140,16 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
 
             // The depth reduction we will search the move with
             let mut r = 1;
-            if !research && ctx.depth > 2 && !in_check && !sm.is_tactical() {
+            if !research && ctx.depth > 1 && !in_check && !sm.is_tactical() {
                 if is_pv_node {
-                    if i > 6 {
+                    if i > 8 {
                         r += 1
                     }
                 } else {
                     match i {
                         0 => {}
                         1..=6 => r += 1,
-                        _ => r += ctx.depth / 3,
+                        _ => r += max(1, ctx.depth / 3),
                     }
                 }
             }
