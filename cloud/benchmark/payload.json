@@ -1,5 +1,5 @@
 {
   "positions": 200,
-  "depth": 7,
-  "table_size": 100000
+  "depth": 12,
+  "table_size": 1000000
 }
