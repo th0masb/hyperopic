@@ -19,6 +19,16 @@ const END_CHECK_FREQ: u32 = 1000;
 // Better results compared to reduction of 3 or 4
 const MIN_NULL_MOVE_REDUCTION: u8 = 5;
 
+
+// --------------------------------------------------
+// Results of HyperopicDev vs HyperopicMaster (8+0.6, NULL, NULL, 8moves_v3.pgn):
+// Elo: 17.82 +/- 16.18, nElo: 26.59 +/- 24.08
+// LOS: 98.48 %, DrawRatio: 43.75 %, PairsRatio: 1.32
+// Games: 800, Wins: 259, Losses: 218, Draws: 323, Points: 420.5 (52.56 %)
+// Ptnml(0-2): [18, 79, 175, 100, 28], WL/DD Ratio: 1.43
+// LLR: 1.42 (48.3%) (-2.94, 2.94) [0.00, 10.00]
+// --------------------------------------------------
+
 /// Provides relevant callstack information for the search to
 /// use during the traversal of the tree.
 #[derive(Debug)]
@@ -27,23 +37,21 @@ pub struct Context {
     pub alpha: i32,
     pub beta: i32,
     pub depth: u8,
-    pub precursors: Vec<Move>,
     pub known_raise_alpha: Option<Move>,
     pub null_move_last: bool,
+    pub on_pv: bool,
 }
 
 impl Context {
-    fn next(&self, alpha: i32, beta: i32, m: &Move, r: u8) -> Context {
-        let mut next_precursors = self.precursors.clone();
-        next_precursors.push(m.clone());
+    fn next(&self, alpha: i32, beta: i32, m: &Move, r: u8, on_pv: bool) -> Context {
         Context {
             alpha,
             beta,
             depth: self.depth - min(r, self.depth),
             root_index: self.root_index,
-            precursors: next_precursors,
             known_raise_alpha: None,
             null_move_last: matches!(m, Move::Null),
+            on_pv
         }
     }
 }
@@ -69,6 +77,8 @@ pub struct TreeSearcher<E: SearchEndSignal, T: Transpositions> {
     pub moves: MoveGenerator,
     pub pv: PrincipleVariation,
     pub node_counter: u32,
+    pub pv_node_count: u32,
+    pub off_pv: bool,
 }
 
 fn reposition_first(dest: &mut Vec<SearchMove>, new_first: &Move) {
@@ -86,6 +96,15 @@ enum TableLookup {
 
 impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
     pub fn search(&mut self, node: &mut TreeNode, mut ctx: Context) -> Result<SearchResponse> {
+        // Track the pv for debug assertions, we want to make sure we always hit it correctly.
+        if !self.off_pv {
+            if ctx.on_pv {
+                self.pv_node_count += 1;
+            } else {
+                self.off_pv = true;
+            }
+        }
+        // Periodically check if we need to end the search
         self.node_counter = (self.node_counter + 1) % END_CHECK_FREQ;
         if self.node_counter == 0 && self.end.should_end_now() {
             return Err(anyhow!("Terminated at depth {}", ctx.depth));
@@ -106,19 +125,17 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
             TableLookup::Hit(response) => return Ok(response),
         };
 
-        let in_pvs = self.pv.in_pv(ctx.precursors.as_slice());
-        let in_check = node.position().in_check();
         let is_pv_node = ctx.alpha == -INFTY
-            || in_pvs
+            || ctx.on_pv
             || ctx.known_raise_alpha.is_some()
             || matches!(table_entry, Some(Pv(_)));
 
         if !is_pv_node && !ctx.null_move_last && should_try_null_move_pruning(node) {
-            // Idea is if we make no move and still cause a cutoff it is highly likely there is some
+            // The idea is if we make no move and still cause a cutoff, it is highly likely there is some
             // move we can make which will also cause a cutoff
             node.make(Move::Null)?;
             let r = max(MIN_NULL_MOVE_REDUCTION, ctx.depth / 3);
-            let score = -self.search(node, ctx.next(-ctx.beta, -ctx.beta + 1, &Move::Null, r))?;
+            let score = -self.search(node, ctx.next(-ctx.beta, -ctx.beta + 1, &Move::Null, r, false))?;
             node.unmake()?;
             if score.eval >= ctx.beta {
                 return Ok(SearchResponse { eval: ctx.beta, path: vec![] });
@@ -127,6 +144,7 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
 
         let mvs = self.generate_moves(node, &ctx, &table_entry);
         let start_alpha = ctx.alpha;
+        let in_check = node.position().in_check();
 
         let mut i = 0;
         let mut research = false;
@@ -156,17 +174,16 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
 
             node.make(m.clone())?;
             let response = if !raised_alpha {
-                -self.search(node, ctx.next(-ctx.beta, -ctx.alpha, &m, r))?
+                // Are we continuing the principle variation?
+                let still_on_pv = ctx.on_pv && self.pv.is_next_on_pv(ctx.depth, m);
+                -self.search(node, ctx.next(-ctx.beta, -ctx.alpha, &m, r, still_on_pv))?
             } else {
-                // Search with null window under the assumption that the
-                // previous moves are better than this
-                let null = -self.search(node, ctx.next(-ctx.alpha - 1, -ctx.alpha, &m, r))?;
-                // null in [a, a+1]
+                // Search with a null window under the assumption that the previous moves are better than this
+                let null = -self.search(node, ctx.next(-ctx.alpha - 1, -ctx.alpha, &m, r, false))?;
                 // If there is some move which can raise alpha
                 if score < null.eval {
-                    // Then this was actually a better move and so we must
-                    // perform a full search
-                    -self.search(node, ctx.next(-ctx.beta, -ctx.alpha, &m, r))?
+                    // Then this was actually a better move, and so we must perform a full search
+                    -self.search(node, ctx.next(-ctx.beta, -ctx.alpha, &m, r, false))?
                 } else {
                     null
                 }
@@ -290,6 +307,7 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
         table_entry: &Option<NodeType>,
     ) -> Vec<SearchMove> {
         let mut mvs = self.moves.generate(node);
+        // Could have pv | known_raise | table_entry with swap instead of insert at 0
         table_entry.as_ref().map(|n| {
             reposition_first(
                 &mut mvs,
@@ -301,7 +319,9 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
             )
         });
         ctx.known_raise_alpha.as_ref().map(|m| reposition_first(&mut mvs, m));
-        self.pv.get_next_move(ctx.precursors.as_slice()).map(|m| reposition_first(&mut mvs, &m));
+        if ctx.on_pv {
+            self.pv.get_next_move(ctx.depth as usize).map(|m| reposition_first(&mut mvs, &m));
+        }
         mvs
     }
 }
