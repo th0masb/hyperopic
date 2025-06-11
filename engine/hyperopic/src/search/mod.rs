@@ -134,7 +134,7 @@ impl<E: SearchEndSignal + Clone, T: Transpositions> Search<E, T> {
                     break;
                 }
                 Ok(response) => {
-                    pv.set(response.path.as_slice());
+                    pv = PrincipleVariation { path: response.path.clone() };
                     let eval = response.eval;
                     best_response = Some(response);
                     // Inevitable checkmate detected, don't search any deeper
@@ -173,10 +173,10 @@ impl<E: SearchEndSignal + Clone, T: Transpositions> Search<E, T> {
                 depth,
                 alpha: -node::INFTY,
                 beta: node::INFTY,
-                precursors: vec![],
                 known_raise_alpha: None,
                 root_index,
                 null_move_last: false,
+                on_pv: true
             },
         )?;
 
