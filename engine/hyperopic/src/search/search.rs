@@ -155,13 +155,13 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
             let mut r = 1;
             if !research && ctx.depth > 1 && !in_check && !sm.is_tactical() {
                 if is_pv_node {
-                    if i > 6 {
+                    if i > 10 {
                         r += 1
                     }
                 } else {
                     match i {
                         0 => {}
-                        1..=6 => r += 1,
+                        1..=4 => r += 1,
                         _ => r += max(1, ctx.depth / 3),
                     }
                 }
