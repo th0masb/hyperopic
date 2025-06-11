@@ -27,7 +27,7 @@ mod test {
     use crate::constants::square::{E2, E4, E5, E7, F1, G3};
     use crate::moves::Move::Normal;
     use crate::search::pv::PrincipleVariation;
-    
+
     fn create_test_pv() -> PrincipleVariation {
         PrincipleVariation {
             path: vec![

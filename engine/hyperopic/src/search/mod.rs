@@ -160,14 +160,17 @@ impl<E: SearchEndSignal + Clone, T: Transpositions> Search<E, T> {
         }
 
         let root_index = self.node.position().history.len() as u16;
-        let SearchResponse { eval, path } = TreeSearcher {
+        let mut searcher = TreeSearcher {
             end: self.end.clone(),
             table: self.transpositions.clone(),
             moves: MoveGenerator::default(),
             pv: pv.clone(),
             node_counter: 0,
-        }
-        .search(
+            pv_node_count: 0,
+            off_pv: false,
+        };
+        
+        let SearchResponse { eval, path } = searcher.search(
             &mut self.node,
             Context {
                 depth,
@@ -179,6 +182,10 @@ impl<E: SearchEndSignal + Clone, T: Transpositions> Search<E, T> {
                 on_pv: true
             },
         )?;
+        
+        // We should always hit the principle variation in full
+        debug_assert!(searcher.off_pv);
+        debug_assert_eq!(depth as u32, searcher.pv_node_count);
 
         // If the path returned is empty then there must be no legal moves in this position
         if path.is_empty() {
