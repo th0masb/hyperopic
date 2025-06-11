@@ -49,7 +49,7 @@ impl MoveGenerator {
             .map(|m| SearchMove {
                 is_attack: is_attack(&m),
                 is_check: is_checking(&m, &discoveries, enemy_king_loc, occupied),
-                is_promoting: matches!(m, Move::Promote { .. }),
+                is_promoting: matches!(m, Promote { .. }),
                 is_passed_pawn: is_passed_pawn(&m, pos),
                 is_positional_xray: is_positional_xray(&m, pos),
                 m,

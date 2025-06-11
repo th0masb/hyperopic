@@ -19,6 +19,19 @@ const END_CHECK_FREQ: u32 = 1000;
 // Better results compared to reduction of 3 or 4
 const MIN_NULL_MOVE_REDUCTION: u8 = 5;
 
+
+// Just LMR tweak (I think this just came from allowing LMR for all nodes over depth 1)
+// --------------------------------------------------
+// Results of HyperopicDev vs HyperopicMaster (8+0.6, NULL, NULL, 8moves_v3.pgn):
+// Elo: 37.66 +/- 17.90, nElo: 51.81 +/- 24.41
+// LOS: 100.00 %, DrawRatio: 35.99 %, PairsRatio: 1.62
+// Games: 778, Wins: 282, Losses: 198, Draws: 298, Points: 431.0 (55.40 %)
+// Ptnml(0-2): [17, 78, 140, 112, 42], WL/DD Ratio: 1.59
+// LLR: 2.96 (100.5%) (-2.94, 2.94) [0.00, 10.00]
+// --------------------------------------------------
+// SPRT ([0.00, 10.00]) completed - H1 was accepted
+
+
 /// Provides relevant callstack information for the search to
 /// use during the traversal of the tree.
 #[derive(Debug)]
@@ -142,7 +155,7 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
             let mut r = 1;
             if !research && ctx.depth > 1 && !in_check && !sm.is_tactical() {
                 if is_pv_node {
-                    if i > 5 {
+                    if i > 9 {
                         r += 1
                     }
                 } else {
