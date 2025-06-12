@@ -19,15 +19,6 @@ const END_CHECK_FREQ: u32 = 1000;
 // Better results compared to reduction of 3 or 4
 const MIN_NULL_MOVE_REDUCTION: u8 = 5;
 
-// --------------------------------------------------
-// Results of HyperopicDev vs HyperopicMaster (8+0.6, NULL, NULL, 8moves_v3.pgn):
-// Elo: 17.82 +/- 16.18, nElo: 26.59 +/- 24.08
-// LOS: 98.48 %, DrawRatio: 43.75 %, PairsRatio: 1.32
-// Games: 800, Wins: 259, Losses: 218, Draws: 323, Points: 420.5 (52.56 %)
-// Ptnml(0-2): [18, 79, 175, 100, 28], WL/DD Ratio: 1.43
-// LLR: 1.42 (48.3%) (-2.94, 2.94) [0.00, 10.00]
-// --------------------------------------------------
-
 /// Provides relevant callstack information for the search to
 /// use during the traversal of the tree.
 #[derive(Debug)]

@@ -1,16 +1,43 @@
 use crate::board::iterator::BoardIterator;
 use crate::constants::boards::{FILES, RANKS};
-use crate::constants::side::W;
 use crate::constants::{
     class, in_board, lift, piece_class, piece_side, side, square_file, square_rank,
 };
-use crate::{Board, Dir, Piece, Side, SideMap, Square, SquareMap, SquareMatrix};
-use lazy_static::lazy_static;
-use std::array;
+use crate::{Board, Dir, Piece, PieceMap, Side, SideMap, Square, SquareMap, SquareMatrix};
+use crate::board::magic::{BISHOP_MAGICS, BISHOP_MASKS, BISHOP_SHIFTS, ROOK_MAGICS, ROOK_MASKS, ROOK_SHIFTS};
+use crate::constants::dir::*;
 
-lazy_static! {
-    static ref CONTROL: PieceControl = compute_control();
-}
+const MAX_MASK_SIZE: usize = 12;
+const MAX_POWERSET_SIZE: usize = 1 << MAX_MASK_SIZE;
+const INVALID_SQUARE: Square = 64;
+
+static CORDS: SquareMatrix<Board> = compute_cord_cache();
+static KNIGHT_CONTROL: SquareMap<Board> = all_rays(&[NNE, NEE, SEE, SSE, SSW, SWW, NWW, NNW], 1);
+static KING_CONTROL: SquareMap<Board> = all_rays(&[N, NE, E, SE, S, SW, W, NW], 1);
+static PAWN_CONTROL: SideMap<SquareMap<Board>> = [all_rays(&[NE, NW], 1), all_rays(&[SE, SW], 1)];
+
+#[allow(long_running_const_eval)]
+static ROOK_CONTROL: SquareMap<[Board; MAX_POWERSET_SIZE]> = compute_rook_magic_moves();
+#[allow(long_running_const_eval)]
+static BISHOP_CONTROL: SquareMap<[Board; MAX_POWERSET_SIZE]> = compute_bishop_magic_moves();
+
+static CONTROL: PieceMap<fn(Square, Board) -> Board> = [
+    // White
+    |sq, _| PAWN_CONTROL[side::W][sq],
+    |sq, _| KNIGHT_CONTROL[sq],
+    bishop_control,
+    rook_control,
+    |sq, occupied| bishop_control(sq, occupied) | rook_control(sq, occupied),
+    |sq, _| KING_CONTROL[sq],
+    // Black
+    |sq, _| PAWN_CONTROL[side::B][sq],
+    |sq, _| KNIGHT_CONTROL[sq],
+    bishop_control,
+    rook_control,
+    |sq, occupied| bishop_control(sq, occupied) | rook_control(sq, occupied),
+    |sq, _| KING_CONTROL[sq],
+];
+
 
 pub fn board_moves(piece: Piece, sq: Square, friendly: Board, enemy: Board) -> Board {
     let occupied = friendly | enemy;
@@ -33,20 +60,12 @@ pub fn board_moves(piece: Piece, sq: Square, friendly: Board, enemy: Board) -> B
 }
 
 pub fn control(piece: Piece, sq: Square, occupied: Board) -> Board {
-    match piece_class(piece) {
-        class::P => CONTROL.pawns[piece_side(piece)][sq],
-        class::N => CONTROL.knights[sq],
-        class::B => bishop_control(sq, occupied),
-        class::R => rook_control(sq, occupied),
-        class::Q => bishop_control(sq, occupied) | rook_control(sq, occupied),
-        class::K => CONTROL.king[sq],
-        _ => panic!("{} is not a valid piece class", piece_class(piece)),
-    }
+    CONTROL[piece](sq, occupied)
 }
 
 pub fn pawn_control(side: Side, pawns: Board) -> Board {
     let (not_a_file, not_h_file) = (!FILES[7], !FILES[0]);
-    if side == W {
+    if side == side::W {
         ((pawns & not_a_file) << 9) | ((pawns & not_h_file) << 7)
     } else {
         ((pawns & not_h_file) >> 9) | ((pawns & not_a_file) >> 7)
@@ -55,65 +74,78 @@ pub fn pawn_control(side: Side, pawns: Board) -> Board {
 
 fn bishop_control(sq: Square, occupied: Board) -> Board {
     use magic::*;
-    CONTROL.bishop[sq][index(occupied & BISHOP_MASKS[sq], BISHOP_MAGICS[sq], BISHOP_SHIFTS[sq])]
+    BISHOP_CONTROL[sq][index(occupied & BISHOP_MASKS[sq], BISHOP_MAGICS[sq], BISHOP_SHIFTS[sq])]
 }
 
 fn rook_control(sq: Square, occupied: Board) -> Board {
     use magic::*;
-    CONTROL.rook[sq][index(occupied & ROOK_MASKS[sq], ROOK_MAGICS[sq], ROOK_SHIFTS[sq])]
+    ROOK_CONTROL[sq][index(occupied & ROOK_MASKS[sq], ROOK_MAGICS[sq], ROOK_SHIFTS[sq])]
 }
 
-struct PieceControl {
-    pawns: SideMap<SquareMap<Board>>,
-    knights: SquareMap<Board>,
-    king: SquareMap<Board>,
-    rook: SquareMap<Vec<Board>>,
-    bishop: SquareMap<Vec<Board>>,
-}
-
-fn compute_control() -> PieceControl {
-    use crate::constants::dir::*;
-    use magic::*;
-    PieceControl {
-        knights: array::from_fn(|sq| rays(sq, &[NNE, NEE, SEE, SSE, SSW, SWW, NWW, NNW], 1)),
-        king: array::from_fn(|sq| rays(sq, &[N, NE, E, SE, S, SW, W, NW], 1)),
-        pawns: [
-            array::from_fn(|sq| rays(sq, &[NE, NW], 1)),
-            array::from_fn(|sq| rays(sq, &[SE, SW], 1)),
-        ],
-        rook: array::from_fn(|sq| {
-            compute_magic_moves(sq, ROOK_MASKS[sq], ROOK_MAGICS[sq], ROOK_SHIFTS[sq], &[N, E, S, W])
-        }),
-        bishop: array::from_fn(|sq| {
-            compute_magic_moves(
-                sq,
-                BISHOP_MASKS[sq],
-                BISHOP_MAGICS[sq],
-                BISHOP_SHIFTS[sq],
-                &[NE, SE, SW, NW],
-            )
-        }),
+const fn compute_rook_magic_moves() -> SquareMap<[Board; MAX_POWERSET_SIZE]> {
+    let mut result = [[0; MAX_POWERSET_SIZE]; 64];
+    let mut sq = 0;
+    let dirs = &[N, E, S, W];
+    while sq < 64 {
+        result[sq] = compute_magic_moves(sq, ROOK_MASKS[sq], ROOK_MAGICS[sq], ROOK_SHIFTS[sq], dirs);
+        sq += 1
     }
+    result
 }
 
-fn compute_magic_moves(
+const fn compute_bishop_magic_moves() -> SquareMap<[Board; MAX_POWERSET_SIZE]> {
+    let mut result = [[0; MAX_POWERSET_SIZE]; 64];
+    let mut sq = 0;
+    let dirs = &[NE, SE, SW, NW];
+    while sq < 64 {
+        result[sq] = compute_magic_moves(sq, BISHOP_MASKS[sq], BISHOP_MAGICS[sq], BISHOP_SHIFTS[sq], dirs);
+        sq += 1
+    }
+    result
+}
+
+const fn compute_magic_moves(
     sq: Square,
     mask: Board,
     magic: u64,
     shift: usize,
     dirs: &[Dir],
-) -> Vec<Board> {
-    let mut result = vec![0u64; 1usize << mask.count_ones()];
-    for variation in compute_powerset(iter(mask).collect::<Vec<_>>().as_slice()) {
-        let index = magic::index(variation, magic, shift);
-        result[index] = compute_sliding_control(sq, variation, dirs)
+) -> [Board; MAX_POWERSET_SIZE] {
+    // Build the squares array
+    let mut squares = [INVALID_SQUARE; MAX_MASK_SIZE];
+    let mut j = 0;
+    let mut i: Square = 0;
+    while i < 64 {
+        if in_board(mask, i) {
+            squares[j] = i;
+            j += 1
+        }
+        i += 1
     }
+
+    let variations = compute_powerset(squares);
+    let mut result = [0u64; MAX_POWERSET_SIZE];
+    let mut k = 0;
+    while k < variations.len() {
+        let variation = variations[k];
+        // Empty set is first, all others non empty
+        if k > 0 && variation == 0 {
+            break
+        }
+        let index = magic::index(variation, magic, shift);
+        result[index] = compute_sliding_control(sq, variation, dirs);
+        k += 1
+    }
+
     result
 }
 
-fn compute_sliding_control(source: Square, occupancy: Board, dirs: &[Dir]) -> Board {
+const fn compute_sliding_control(source: Square, occupancy: Board, dirs: &[Dir]) -> Board {
     let mut control = 0u64;
-    for &d in dirs {
+    let mut i = 0;
+    let dir_count = dirs.len();
+    while i < dir_count {
+        let d = dirs[i];
         let mut next_sq = next(source, d);
         while let Some(sq) = next_sq {
             control |= lift(sq);
@@ -122,20 +154,82 @@ fn compute_sliding_control(source: Square, occupancy: Board, dirs: &[Dir]) -> Bo
                 break;
             }
         }
+        i += 1
     }
     control
 }
 
-fn compute_powerset(squares: &[Square]) -> Vec<Board> {
-    if squares.is_empty() {
-        vec![0]
+
+// Rules
+// - In the returned powerset 0 must be the first element (empty set)
+// - In the input squares array we use 64 to represent empty space, the non empty squares
+//   must be contiguous and start from 0
+const fn compute_powerset(squares: [Square; MAX_MASK_SIZE]) -> [Board; MAX_POWERSET_SIZE] {
+    let mut square_count = 0;
+    while square_count < MAX_MASK_SIZE && squares[square_count] != INVALID_SQUARE {
+        square_count += 1;
+    }
+
+    if square_count == 0 {
+        [0; MAX_POWERSET_SIZE]
     } else {
-        let (head, rest) = (squares[0], &squares[1..]);
-        compute_powerset(rest).into_iter().flat_map(|r| [r, r | lift(head)].into_iter()).collect()
+        let mut tail = [INVALID_SQUARE; MAX_MASK_SIZE];
+        let mut i = 1;
+        while i < square_count {
+            tail[i - 1] = squares[i];
+            i += 1
+        }
+        let mut result = compute_powerset(tail);
+        let size = 1 << (square_count - 1);
+        let head = squares[0];
+        let mut j = 0;
+        while j < size {
+            result[size + j] = result[j] | lift(head);
+            j += 1
+        }
+        result
     }
 }
 
-pub const fn next(square: Square, (dr, df): Dir) -> Option<Square> {
+#[cfg(test)]
+mod test_powerset {
+    use crate::{board, Board};
+    use crate::constants::lift;
+    use crate::constants::square::{E3, H5};
+    use super::{compute_powerset, INVALID_SQUARE, MAX_MASK_SIZE, MAX_POWERSET_SIZE};
+
+    #[test]
+    fn test_powerset_0() {
+        let squares = [INVALID_SQUARE; MAX_MASK_SIZE];
+        let powerset = compute_powerset(squares);
+        assert_eq!([0; MAX_POWERSET_SIZE], powerset);
+    }
+
+    #[test]
+    fn test_powerset_1() {
+        let mut squares = [INVALID_SQUARE; MAX_MASK_SIZE];
+        squares[0] = E3;
+        let powerset = compute_powerset(squares);
+        let mut expected : [Board; MAX_POWERSET_SIZE] = [0; MAX_POWERSET_SIZE];
+        expected[1] = lift(E3);
+        assert_eq!(expected, powerset);
+    }
+
+    #[test]
+    fn test_powerset_2() {
+        let mut squares = [INVALID_SQUARE; MAX_MASK_SIZE];
+        squares[0] = E3;
+        squares[1] = H5;
+        let powerset = compute_powerset(squares);
+        let mut expected : [Board; MAX_POWERSET_SIZE] = [0; MAX_POWERSET_SIZE];
+        expected[1] = lift(H5);
+        expected[2] = lift(E3);
+        expected[3] = board!(E3, H5);
+        assert_eq!(expected, powerset);
+    }
+}
+
+const fn next(square: Square, (dr, df): Dir) -> Option<Square> {
     let next_r = (square_rank(square) as isize) + dr;
     let next_f = (square_file(square) as isize) + df;
     if 0 <= next_f && 0 <= next_r && next_f < 8 && next_r < 8 {
@@ -145,7 +239,7 @@ pub const fn next(square: Square, (dr, df): Dir) -> Option<Square> {
     }
 }
 
-pub const fn rays(source: Square, dirs: &[Dir], depth: usize) -> Board {
+const fn rays(source: Square, dirs: &[Dir], depth: usize) -> Board {
     let mut result = 0u64;
     let mut i = 0;
     while i < dirs.len() {
@@ -166,12 +260,33 @@ pub const fn rays(source: Square, dirs: &[Dir], depth: usize) -> Board {
     result
 }
 
-pub fn cord(from: Square, dest: Square) -> Board {
-    lazy_static! {
-        static ref CACHE: SquareMatrix<Board> =
-            array::from_fn(|from| array::from_fn(|dest| compute_cord(from, dest)));
+const fn all_rays(dirs: &[Dir], depth: usize) -> SquareMap<Board> {
+    let mut result = [0; 64];
+    let mut i = 0;
+    while i < 64 {
+        result[i] = rays(i, dirs, depth);
+        i += 1;
     }
-    CACHE[from][dest]
+    result
+}
+
+pub fn cord(from: Square, dest: Square) -> Board {
+    CORDS[from][dest]
+}
+
+const fn compute_cord_cache() -> SquareMatrix<Board> {
+    let mut result = [[0; 64]; 64];
+    let mut from = 0;
+    let mut dest;
+    while from < 64 {
+        dest = 0;
+        while dest < 64 {
+            result[from][dest] = compute_cord(from, dest);
+            dest += 1
+        }
+        from += 1
+    }
+    result
 }
 
 pub const fn compute_cord(from: Square, dest: Square) -> Board {
@@ -189,7 +304,7 @@ pub const fn compute_cord(from: Square, dest: Square) -> Board {
     }
 }
 
-pub const fn gcd(mut a: u32, mut b: u32) -> u32 {
+const fn gcd(mut a: u32, mut b: u32) -> u32 {
     while b != 0 {
         let t = b;
         b = a % b;
@@ -260,7 +375,7 @@ mod iterator {
 mod magic {
     use crate::SquareMap;
 
-    pub(super) fn index(occupancy: u64, magic: u64, shift: usize) -> usize {
+    pub(super) const fn index(occupancy: u64, magic: u64, shift: usize) -> usize {
         occupancy.wrapping_mul(magic).wrapping_shr(shift as u32) as usize
     }
 
