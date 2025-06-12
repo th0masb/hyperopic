@@ -1,5 +1,4 @@
 use crate::moves::Move;
-use std::cmp::min;
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PrincipleVariation {
@@ -7,17 +6,17 @@ pub struct PrincipleVariation {
 }
 
 impl PrincipleVariation {
-    pub fn get_next_move(&self, curr_depth: usize) -> Option<Move> {
+    pub fn get_next_move(&self, curr_depth: usize) -> Option<&Move> {
         // If pv depth is n then we would map
         // n+1 -> 0
         // n   -> 1
         // ..
         // 1   -> n-1
-        self.path.get((1 + self.path.len()) - curr_depth).cloned()
+        self.path.get((1 + self.path.len()) - curr_depth)
     }
 
     pub fn is_next_on_pv(&self, curr_depth: u8, candidate: &Move) -> bool {
-        self.get_next_move(curr_depth as usize).is_some_and(|pvm| &pvm == candidate)
+        self.get_next_move(curr_depth as usize).is_some_and(|pvm| pvm == candidate)
     }
 }
 
@@ -48,9 +47,9 @@ mod test {
     fn get_next_move() {
         let pv = create_test_pv();
 
-        assert_eq!(Some(Normal { moving: piece::WP, from: E2, dest: E4, capture: None }), pv.get_next_move(4));
-        assert_eq!(Some(Normal { moving: piece::BP, from: E5, dest: E7, capture: None }), pv.get_next_move(3));
-        assert_eq!(Some(Normal { moving: piece::WN, from: F1, dest: G3, capture: None }), pv.get_next_move(2));
+        assert_eq!(Some(&Normal { moving: piece::WP, from: E2, dest: E4, capture: None }), pv.get_next_move(4));
+        assert_eq!(Some(&Normal { moving: piece::BP, from: E5, dest: E7, capture: None }), pv.get_next_move(3));
+        assert_eq!(Some(&Normal { moving: piece::WN, from: F1, dest: G3, capture: None }), pv.get_next_move(2));
         assert_eq!(None, pv.get_next_move(1));
     }
 }

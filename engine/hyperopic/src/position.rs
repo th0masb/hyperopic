@@ -16,6 +16,8 @@ use crate::constants::{
 use anyhow::{Result, anyhow};
 use rustc_hash::FxHashMap;
 
+const INITIAL_MOVE_VEC_CAPACITY: usize = 45;
+
 /// Represents the possible ways a game can be terminated, we only
 /// consider a game to be terminated when a side has no legal moves
 /// to make or if a special draw condition is met like position
@@ -503,7 +505,7 @@ impl Position {
             }
         }
 
-        let mut result = Vec::with_capacity(40);
+        let mut result = Vec::with_capacity(INITIAL_MOVE_VEC_CAPACITY);
         self.compute_pawn_moves(&constraints)
             .chain(self.compute_nbrqk_moves(&constraints))
             .chain(self.compute_castle_moves(passive_control, castle_mode))
