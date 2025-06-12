@@ -82,7 +82,7 @@ fn search_impl(node: &mut TreeNode, mut alpha: i32, beta: i32, depth: i32) -> Re
             return Ok(beta);
         }
     }
-    return Ok(result);
+    Ok(result)
 }
 
 fn compute_quiescent_moves(

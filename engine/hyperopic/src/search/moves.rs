@@ -42,7 +42,7 @@ impl MoveGenerator {
         let enemy_king_loc = pos.piece_boards[enemy_king].trailing_zeros() as usize;
         let discoveries = pos.compute_discoveries_on(enemy_king_loc).unwrap();
         let mut moves = node.position().moves(&Moves::All);
-        moves.sort_by_cached_key(|m| -self.estimator.estimate(node, m));
+        moves.sort_by_cached_key(|m| self.estimator.estimate(node, m));
         let occupied = union_boards(&pos.side_boards);
         moves
             .into_iter()

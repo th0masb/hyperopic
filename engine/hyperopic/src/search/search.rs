@@ -19,7 +19,6 @@ const END_CHECK_FREQ: u32 = 1000;
 // Better results compared to reduction of 3 or 4
 const MIN_NULL_MOVE_REDUCTION: u8 = 5;
 
-
 // --------------------------------------------------
 // Results of HyperopicDev vs HyperopicMaster (8+0.6, NULL, NULL, 8moves_v3.pgn):
 // Elo: 17.82 +/- 16.18, nElo: 26.59 +/- 24.08
@@ -51,7 +50,7 @@ impl Context {
             root_index: self.root_index,
             known_raise_alpha: None,
             null_move_last: matches!(m, Move::Null),
-            on_pv
+            on_pv,
         }
     }
 }
@@ -81,10 +80,30 @@ pub struct TreeSearcher<E: SearchEndSignal, T: Transpositions> {
     pub off_pv: bool,
 }
 
-fn reposition_first(dest: &mut Vec<SearchMove>, new_first: &Move) {
-    if let Some(index) = dest.iter().position(|m| &m.m == new_first) {
-        let removed = dest.remove(index);
-        dest.insert(0, removed);
+fn reposition_move_last(dest: &mut Vec<SearchMove>, m: &Move) {
+    reposition_last(dest, |sm| &sm.m == m);
+}
+
+fn reposition_last<T, F>(dest: &mut Vec<T>, matcher: F)
+where
+    F: Fn(&T) -> bool,
+{
+    if let Some(index) = dest.iter().rev().position(matcher) {
+        let n = dest.len();
+        let removed = dest.remove(n - 1 - index);
+        dest.push(removed);
+    }
+}
+
+#[cfg(test)]
+mod reposition_test {
+    use super::reposition_last;
+
+    #[test]
+    fn case_1() {
+        let mut xs = vec!["a", "b", "c", "d", "e", "f"];
+        reposition_last(&mut xs, |&x| x == "c");
+        assert_eq!(vec!["a", "b", "d", "e", "f", "c"], xs)
     }
 }
 
@@ -135,14 +154,14 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
             // move we can make which will also cause a cutoff
             node.make(Move::Null)?;
             let r = max(MIN_NULL_MOVE_REDUCTION, ctx.depth / 3);
-            let score = -self.search(node, ctx.next(-ctx.beta, -ctx.beta + 1, &Move::Null, r, false))?;
+            let score =
+                -self.search(node, ctx.next(-ctx.beta, -ctx.beta + 1, &Move::Null, r, false))?;
             node.unmake()?;
             if score.eval >= ctx.beta {
                 return Ok(SearchResponse { eval: ctx.beta, path: vec![] });
             }
         }
 
-        let mvs = self.generate_moves(node, &ctx, &table_entry);
         let start_alpha = ctx.alpha;
         let in_check = node.position().in_check();
 
@@ -152,8 +171,10 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
         let mut raised_alpha = false;
         let mut score = -INFTY;
 
+        // Ordered from worst to best, so we iterate from back to front
+        let mvs = self.generate_moves(node, &ctx, &table_entry);
         while i < mvs.len() {
-            let sm = &mvs[i];
+            let sm = &mvs[mvs.len() - 1 - i];
             let m = &sm.m;
 
             // The depth reduction we will search the move with
@@ -179,7 +200,8 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
                 -self.search(node, ctx.next(-ctx.beta, -ctx.alpha, &m, r, still_on_pv))?
             } else {
                 // Search with a null window under the assumption that the previous moves are better than this
-                let null = -self.search(node, ctx.next(-ctx.alpha - 1, -ctx.alpha, &m, r, false))?;
+                let null =
+                    -self.search(node, ctx.next(-ctx.alpha - 1, -ctx.alpha, &m, r, false))?;
                 // If there is some move which can raise alpha
                 if score < null.eval {
                     // Then this was actually a better move, and so we must perform a full search
@@ -307,20 +329,20 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
         table_entry: &Option<NodeType>,
     ) -> Vec<SearchMove> {
         let mut mvs = self.moves.generate(node);
-        // Could have pv | known_raise | table_entry with swap instead of insert at 0
-        table_entry.as_ref().map(|n| {
-            reposition_first(
+        if let Some(n) = table_entry {
+            reposition_move_last(
                 &mut mvs,
                 match n {
                     Pv(path) => path.first().unwrap(),
-                    Cut(m) => m,
-                    All(m) => m,
+                    Cut(m) | All(m) => m,
                 },
-            )
-        });
-        ctx.known_raise_alpha.as_ref().map(|m| reposition_first(&mut mvs, m));
+            );
+        }
+        if let Some(m) = ctx.known_raise_alpha.as_ref() {
+            reposition_move_last(&mut mvs, m);
+        }
         if ctx.on_pv {
-            self.pv.get_next_move(ctx.depth as usize).map(|m| reposition_first(&mut mvs, &m));
+            self.pv.get_next_move(ctx.depth as usize).map(|m| reposition_move_last(&mut mvs, m));
         }
         mvs
     }
