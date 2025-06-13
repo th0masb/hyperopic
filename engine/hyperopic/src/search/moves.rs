@@ -10,6 +10,10 @@ use crate::moves::{Move, Moves};
 use crate::node::TreeNode;
 use crate::position::{CASTLING_DETAILS, ConstrainedPieces, Position};
 use crate::{Board, Class, Piece, Square};
+use crate::search::quiescent;
+use crate::search::search::Context;
+
+const QUIESCENT_ORDERING_DEPTH_THRESHOLD: u8 = 8;
 
 #[derive(Default)]
 pub struct MoveGenerator {
@@ -36,14 +40,18 @@ impl SearchMove {
 }
 
 impl MoveGenerator {
-    pub fn generate(&self, node: &TreeNode) -> Vec<SearchMove> {
+    pub fn generate(&self, node: &mut TreeNode, ctx: &Context) -> Vec<SearchMove> {
+        let mut moves = node.position().moves(&Moves::All);
+        if ctx.depth > QUIESCENT_ORDERING_DEPTH_THRESHOLD {
+            moves.sort_by_cached_key(|m| quiescent_evaluation(node, m));
+        } else {
+            moves.sort_by_cached_key(|m| self.estimator.estimate(node, m));
+        }
         let pos = node.position();
         let enemy_king = create_piece(reflect_side(pos.active), class::K);
         let enemy_king_loc = pos.piece_boards[enemy_king].trailing_zeros() as usize;
-        let discoveries = pos.compute_discoveries_on(enemy_king_loc).unwrap();
-        let mut moves = node.position().moves(&Moves::All);
-        moves.sort_by_cached_key(|m| self.estimator.estimate(node, m));
         let occupied = union_boards(&pos.side_boards);
+        let discoveries = pos.compute_discoveries_on(enemy_king_loc).unwrap();
         moves
             .into_iter()
             .map(|m| SearchMove {
@@ -56,6 +64,14 @@ impl MoveGenerator {
             })
             .collect()
     }
+    
+}
+fn quiescent_evaluation(node: &mut TreeNode, m: &Move) -> i32 {
+    node.make(m.clone()).unwrap();
+    // Now enemy to move, so more negative is better for us
+    let eval = -quiescent::full_search(node).unwrap();
+    node.unmake().unwrap();
+    eval
 }
 
 fn is_positional_xray(m: &Move, pos: &Position) -> bool {
