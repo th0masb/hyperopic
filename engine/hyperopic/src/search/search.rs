@@ -315,11 +315,11 @@ impl<E: SearchEndSignal, T: Transpositions> TreeSearcher<E, T> {
 
     fn generate_moves(
         &self,
-        node: &TreeNode,
+        node: &mut TreeNode,
         ctx: &Context,
         table_entry: &Option<NodeType>,
     ) -> Vec<SearchMove> {
-        let mut mvs = self.moves.generate(node);
+        let mut mvs = self.moves.generate(node, ctx);
         if let Some(n) = table_entry {
             reposition_move_last(
                 &mut mvs,
