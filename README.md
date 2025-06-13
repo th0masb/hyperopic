@@ -14,14 +14,12 @@ is provided by AWS and provisioned programmatically using the typescript flavour
 of their [cloud development kit](https://aws.amazon.com/cdk/).
 
 The main engine deployment is mostly serverless and uses a couple of lambda
-functions for computation alongside a dynamodb table for opening moves. The
+functions alongside a dynamodb table for opening moves. The first lambda tracks the
+progress of a game and calls the second to compute our move when needed. The
 Lichess API model is pull based and requires a process polling an event stream
 constantly to detect and respond to challenges, so this is running on a tiny ECS
-cluster. It is aimed to have 99.9% available for accepting challenges subject o
+cluster. The aim is to have 99.9% availability for accepting challenges subject to
 max concurrent games limit on Lichess.
-
-The engine is also deployed on a desktop and is slightly stronger but less
-available for challenging.
 
 ---
 

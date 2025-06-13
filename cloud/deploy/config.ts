@@ -142,9 +142,9 @@ export const BotConfigValues: BotConfig[] = [
             },
             rateLimits: {
                 challengeTable: { name: "HyperopicChallenges" },
-                maxDailyChallenges: 100,
+                maxDailyChallenges: 200,
                 maxDailyUserChallenges: 5,
-                excluded: ["myopic-bot"]
+                excluded: ["myopic-bot", "th0masb"]
             },
             timeConstraints: {
                 minInitialTimeSecs: 60,
@@ -176,7 +176,7 @@ export const BotConfigValues: BotConfig[] = [
                     {
                         include: true,
                         pattern: "^th0masb$"
-                    }
+                    },
                 ]
             },
             rateLimits: {
