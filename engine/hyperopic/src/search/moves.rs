@@ -39,7 +39,7 @@ impl SearchMove {
 impl MoveGenerator {
     pub fn generate(&self, node: &mut TreeNode, ctx: &Context) -> Vec<SearchMove> {
         let mut moves = node.position().moves(&Moves::All);
-        if ctx.depth > 8 {
+        if ctx.depth > 6 {
             moves.sort_by_cached_key(|m| quiescent_evaluation(node, m));
         } else {
             moves.sort_by_cached_key(|m| self.estimator.estimate(node, m));
